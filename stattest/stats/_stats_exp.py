@@ -1,15 +1,11 @@
 from scipy.stats import norm
 import numpy as np
-import numpy.typing as npt
-from statistics import NormalDist
+from stattest._utils import _check_sample_length, _scale_sample
 
 
 def eptest_exp(x):
     """
-    Perform the Epps and Pulley test for normality.
-
-    The Epps and Pulley test tests the null hypothesis that the
-    data was drawn from an exponential distribution.
+    Epps and Pulley test statistic for exponentiality.
 
     Parameters
     ----------
@@ -20,27 +16,99 @@ def eptest_exp(x):
     -------
     statistic : float
         The test statistic.
-    p-value : float
-        The p-value for the hypothesis test.
     """
-
     n = len(x)
-    if n < 3:
-        raise ValueError("Data must be at least length 3.")
+    _check_sample_length(x)
+    x_scaled = _scale_sample(x)
 
-    x_avg = sum(x) / n
+    statistic_sum = 0
+    for j in range(n):
+        statistic_sum += np.exp(-x_scaled[j])
 
-    for i in range(n):
-        x[i] = np.exp(-x[i] / x_avg)
+    statistic = ((48 * n) ** 0.5) * ((statistic_sum / n) - 0.5)
 
-
-    EP = ((48 * n) ** (0.5)) * ((sum(x) / n) - 0.5)
-
-    pv_right = 1 - norm.cdf(EP)
-    pv_left = norm.cdf(EP)
-    pv_common = min(pv_right, pv_left) * 2
-
-    return EP, (pv_common, pv_left, pv_right)
+    return statistic
 
 
-xo = np.random.exponential(scale=1, size=1000)
+def cmtest_exp(x):
+    """
+    Cramer-von-Mises test statistic for exponentiality.
+
+    Parameters
+    ----------
+    x : array_like
+        Array of sample data.
+
+    Returns
+    -------
+    statistic : float
+        The test statistic.
+    """
+    n = len(x)
+    _check_sample_length(x)
+    x_scaled_sorted = sorted(_scale_sample(x))
+
+    statistic_sum = 0
+    for j in range(n):
+        statistic_sum += ((1 - np.exp(-x_scaled_sorted[j])) - (2 * j - 1) / (2 * n)) ** 2
+
+    statistic = (1 / 12 * n) + statistic_sum
+
+    return statistic
+
+
+def kstest_exp(x):
+    """
+    Kolmogorov and Smirnov test statistic for exponentiality.
+
+    Parameters
+    ----------
+    x : array_like
+        Array of sample data.
+
+    Returns
+    -------
+    statistic : float
+        The test statistic.
+    """
+    n = len(x)
+    _check_sample_length(x)
+    x_scaled_sorted = sorted(_scale_sample(x))
+
+    ks_plus = float('-inf')
+    ks_minus = float('-inf')
+
+    for j in range(n):
+        ks_plus = max(j / n - (1 - np.exp(-x_scaled_sorted[j])), ks_plus)
+        ks_minus = max((1 - np.exp(-x_scaled_sorted[j]) - (j - 1) / n), ks_minus)
+
+    statistic = max(ks_plus, ks_minus)
+
+    return statistic
+
+
+def zptest_exp(x):
+    """
+    Zardasht et al. test statistic for exponentiality.
+
+    Parameters
+    ----------
+    x : array_like
+        Array of sample data.
+
+    Returns
+    -------
+    statistic : float
+        The test statistic.
+    """
+    n = len(x)
+    _check_sample_length(x)
+    x_scaled = _scale_sample(x)
+
+    statistic_sum = 0
+    for j in range(n):
+        statistic_sum += x_scaled[j] * np.exp(-x_scaled[j])
+
+    statistic = statistic_sum / n - (1 / 4)
+
+    return statistic
