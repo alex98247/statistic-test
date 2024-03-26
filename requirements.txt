@@ -1,2 +1,5 @@
 numpy>=1.25.1
 scipy>=1.11.2
+matplotlib>=3.8.0
+tqdm>=4.66.2
+fpdf2>=2.7.8
