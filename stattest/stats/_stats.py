@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import numpy.typing as npt
 from statistics import NormalDist
@@ -102,6 +104,7 @@ def dapstest(x):
     return stat
 
 
+# TODO: whose test?
 def sfstest(x):
     n = len(x)
 
@@ -114,6 +117,7 @@ def sfstest(x):
     return w
 
 
+# TODO: whose test?
 def swstest(f_obs):
     f_obs = np.asanyarray(f_obs)
     f_obs_sorted = np.sort(f_obs)
@@ -140,17 +144,174 @@ def filli_test(x):
 
 
 def mi_test(x):
-    y = np.sort(x)
     n = len(x)
     M = np.median(x)
     A = np.median(np.abs(x - M))
     z = (x - M) / (9 * A)
     i = (abs(z) < 1).nonzero()
-    print(z, i)
     z1 = np.take(z, i)
     x1 = np.take(x, i)
     S = (n * np.sum((x1 - M) ** 2 * (1 - z1 ** 2) ** 4)) / (np.sum((1 - z1 ** 2) * (1 - 5 * z1 ** 2)) ** 2)
-    return S
+    return np.sum((x - M) ** 2) / ((n - 1) * S)
+
+
+# https://doi.org/10.1007/BF02613501
+def ep_test(x):
+    y = np.sort(x)
+    n = len(x)
+    mean = np.mean(x)
+    m_2 = sts.moment(y, moment=2)
+    indexes = range(1, n + 1)
+    s = 0
+    for k in indexes:
+        x1 = np.take(range(k))
+        s += np.exp((-(x1 - x[k]) ** 2) / (2 * m_2))
+    T = 1 + n / np.cbrt(3) + 2 * s / n - np.sqrt(2) * np.sum(np.exp((-(x - mean) ** 2) / (4 * m_2)))
+    return T
+
+
+def jb_test(x):
+    y = np.sort(x)
+    n = len(x)
+    m_2 = sts.moment(y, moment=2)
+    m_3 = sts.moment(y, moment=3)
+    m_4 = sts.moment(y, moment=4)
+    s = m_3 ** 2 / m_2 ** 3
+    k = m_4 / m_2 ** 3
+    JB = (n / 6) * (s + (k - 3) ** 2 / 4)
+    return JB
+
+
+def hosking_test(x, variation=1):
+    y = np.sort(x)
+    n = len(x)
+
+    return 0
+
+
+# https://journals.sagepub.com/doi/pdf/10.1177/1536867X1201200302
+def chen_s_test(x):
+    y = np.sort(x)
+    n = len(x)
+    s = sts.tstd(x)
+    H = (np.arange(1, n + 1) - 3 / 8) / (n + 1 / 4)
+    t = np.zeros(n)
+    for i in range(n):
+        t[i] = (y[i + 1] - y[i]) / (H[i + 1] - H[i])
+    SC = (1 / ((n - 1) * s)) * np.sum(t)
+    return SC
+
+
+# Yulia R. Gel; Joseph L. Gastwirth (2008). A robust modification of the Jarque–Bera test of normality. , 99(1), 0–32.         doi:10.1016/j.econlet.2007.05.022
+def rjb_test(x):
+    y = np.sort(x)
+    n = len(x)
+    M = np.median(y)
+    c = np.sqrt(math.pi / 2)
+    J = (c / n) * np.sum(np.abs(x - M))
+    m_3 = sts.moment(y, moment=3)
+    m_4 = sts.moment(y, moment=4)
+    RJB = (n / 6) * (m_3 / J ** 3) ** 2 + (n / 64) * (m_4 / J ** 4 - 3) ** 2
+    return RJB
+
+
+# Rahman, M. Mahibbur; Govindarajulu, Z. (1997). A modification of the test of Shapiro and Wilk for normality. Journal of Applied Statistics, 24(2), 219–236. doi:10.1080/02664769723828
+def swrg_test(x):
+    f_obs = np.asanyarray(x)
+    f_obs_sorted = np.sort(f_obs)
+    x_mean = np.mean(f_obs)
+    n = len(f_obs)
+
+    denominator = (f_obs - x_mean) ** 2
+    denominator = denominator.sum()
+
+    p = np.arange(1, n + 1) / (n + 1)
+    m = sts.norm.ppf(p)
+    f = sts.norm.pdf(m)
+    t = m * f
+    a = np.zeros(n)
+    for i in range(n):
+        ti_1 = 0 if i == 0 else t[i - 1]
+        ti_2 = 0 if i == n - 1 else t[i + 1]
+        a[i] = -(n + 1) * (n + 2) * sts.norm.pdf(m[i]) * (ti_1 - 2 * t[i] + ti_2)
+    terms = a * f_obs_sorted
+    return (terms.sum() ** 2) / denominator
+
+
+def gmg_test(x):
+    y = np.sort(x)
+    n = len(x)
+    M = np.median(y)
+    c = np.sqrt(math.pi / 2)
+    J = (c / n) * np.sum(np.abs(x - M))
+    s = np.std(y)
+    return s / J
+
+
+def glb_test(x):
+    n = len(x)
+    p = np.array([])  # TODO:
+    i = np.arange(1, n + 1)
+    t = (2 * n + 1 - 2 * i) * np.log(p) + (2 * i - 1) * np.log(1 - p)
+    P = -n - (1 / n) * np.sum(t)
+    return P
+
+
+def bs_test(x):
+    n = len(x)
+    x_mean = np.mean(x)
+    a = x - x_mean
+    m2 = (1 / n) * np.sum(a)
+    t = np.sum(np.abs(a))
+    w = 13.29 * (np.log(m2) - np.log(t / n))
+    T = (np.sqrt(n + 2) * (w - 3)) / 3.54
+    return T
+
+
+def zw1_test(x):
+    n = len(x)
+    i = np.arange(1, n + 1)
+    f = (i - 0.5) / n
+    t = np.log(f) / (n - i + 0.5) + (np.log(1 - f)) / (i - 0.5)
+    Z = -np.sum(t)
+    return Z
+
+
+def zw2_test(x):
+    n = len(x)
+    i = np.arange(1, n + 1)
+    f = (i - 0.5) / n
+    t = (1 / f - 1) / ((n - 0.5) / (i - 0.75) - 1)
+    Z = np.sum(np.log(t) ** 2)
+    return Z
+
+
+def dh_test(x):
+    n = len(x)
+
+    m_2 = sts.moment(x, moment=2)
+    m_3 = sts.moment(x, moment=3)
+    m_4 = sts.moment(x, moment=4)
+    s = m_3 / (np.sqrt(m_2) ** 3)
+    k = m_4 / (m_2 ** 2)
+
+    b = (3 * (n ** 2 + 27 * n - 70) * (n + 1) * (n + 3)) / ((n - 2) * (n + 5) * (n + 7) * (n + 9))
+    w2 = -1 + np.sqrt(2 * (b - 1))
+    delta = 1 / np.sqrt(np.log(w2))
+    y = s * np.sqrt(((w2 - 1) * (n + 1) * (n + 3)) / (12 * (n - 2)))
+    z1 = delta * np.log(y + np.sqrt(y ** 2 - 1))
+
+    delta1 = (n - 3) * (n + 1) * (n ** 2 + 15 * n - 4)
+    a = ((n - 2) * (n + 5) * (n + 7) * (n ** 2 + 27 * n - 70)) / (6 * delta1)
+    c = ((n - 7) * (n + 5) * (n + 7) * (n ** 2 + 2 * n - 5)) / (6 * delta1)
+    l = ((n + 5) * (n + 7) * (n ** 3 + 37 * n ** 2 + 11 * n - 313)) / (12 * delta1)
+    hi = 2 * l * (k - 1 - s ** 2)
+    alpha = a + c * s ** 2
+    z2 = np.sqrt(2 * alpha) * (
+            1 / (9 * alpha) - 1 + np.cbrt(hi / (2 * alpha)))  # TODO: np.sqrt(2 * alpha) vs np.sqrt(9 * alpha)
+
+    DH = z1 ** 2 + z2 ** 2
+    return DH
 
 
 def _compute_dplus(cdfvals, x):

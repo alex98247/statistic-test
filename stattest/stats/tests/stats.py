@@ -2,6 +2,7 @@ import scipy.stats as sts
 import numpy as np
 import unittest
 import stattest.stats as stats
+from stattest.test import KSTest
 
 
 class TestStatMethods(unittest.TestCase):
@@ -10,10 +11,21 @@ class TestStatMethods(unittest.TestCase):
         self.assertEqual(3.5, ch2)
 
     def test_kstest(self):
-        x = np.sort(sts.norm.rvs(size=10))
-        cdf = sts.norm.cdf(x)
-        ch2 = stats.kstest(x, cdf)
+        ks_test = KSTest()
+        x = sts.norm.rvs(size=10)
 
+        x1 = sts.norm.rvs(size=10, loc=11)
+        print(x1, sts.kstest(x1, 'norm').statistic)
+
+        x1 = sts.norm.rvs(size=10, scale=5)
+        print(x1, sts.kstest(x1, 'norm').statistic)
+
+        x1 = sts.norm.rvs(size=10, loc=11, scale=5)
+        print(x1, sts.kstest(x1, 'norm').statistic)
+
+        ch2 = ks_test.execute_statistic(x)
+#[ 0.38323312 -1.10386561  0.75226465 -2.23024566 -0.27247827  0.95926434,  0.42329541 -0.11820711  0.90892169 -0.29045373]
+# 0.18573457378941832
         self.assertEqual(sts.kstest(x, 'norm').statistic, ch2)
 
     def test_swstest(self):
@@ -36,6 +48,15 @@ class TestStatMethods(unittest.TestCase):
     def test_cvmtest(self):
         data = np.array([12, 12, 12, 12, 14, 14, 16, 16, 16, 16, 18])
         ch2 = stats.cvmtest(data)
+        x = sts.norm.rvs(size=10)
+        print(x, sts.cramervonmises(x, 'norm'))
+        self.assertAlmostEqual(3.66666666, ch2, 5)
+
+    def test_jbtest(self):
+        data = np.array([12, 12, 12, 12, 14, 14, 16, 16, 16, 16, 18])
+        ch2 = stats.cvmtest(data)
+        x = sts.norm.rvs(size=10)
+        print(x, sts.jarque_bera(x))
         self.assertAlmostEqual(3.66666666, ch2, 5)
 
     def test_lilliefors(self):
