@@ -539,3 +539,740 @@ class EPTest(AbstractNormalityTest):
              for k in range(1, n)])
         t = 1 + n / np.sqrt(3) + B - A
         return t
+
+
+class Hosking2Test(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'HOSKING2'
+
+    def execute_statistic(self, rvs):
+        n = len(rvs)
+
+        if n > 3:
+
+            xtmp = [0] * n
+            l21, l31, l41 = 0.0, 0.0, 0.0
+            mutau41, vtau31, vtau41 = 0.0, 0.0, 0.0
+            for i in range(n):
+                xtmp[i] = rvs[i]
+            xtmp = np.sort(xtmp)
+            for i in range(2, n):
+                l21 += xtmp[i - 1] * self.pstarmod1(2, n, i)
+                l31 += xtmp[i - 1] * self.pstarmod1(3, n, i)
+                l41 += xtmp[i - 1] * self.pstarmod1(4, n, i)
+            l21 = l21 / (2.0 * math.comb(n, 4))
+            l31 = l31 / (3.0 * math.comb(n, 5))
+            l41 = l41 / (4.0 * math.comb(n, 6))
+            tau31 = l31 / l21
+            tau41 = l41 / l21
+            if 1 <= n <= 25:
+                mutau41 = 0.067077
+                vtau31 = 0.0081391
+                vtau41 = 0.0042752
+            if 25 < n <= 50:
+                mutau41 = 0.064456
+                vtau31 = 0.0034657
+                vtau41 = 0.0015699
+            if 50 < n:
+                mutau41 = 0.063424
+                vtau31 = 0.0016064
+                vtau41 = 0.00068100
+            return pow(tau31, 2.0) / vtau31 + pow(tau41 - mutau41, 2.0) / vtau41
+
+        return 0
+
+    def pstarmod1(self, r, n, i):
+        res = 0.0
+        for k in range(r):
+            res = res + (-1.0) ** k * math.comb(r - 1, k) * math.comb(i - 1, r + 1 - 1 - k) * math.comb(n - i, 1 + k)
+
+        return res
+
+
+class Hosking1Test(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'HOSKING1'
+
+    def execute_statistic(self, rvs):
+        return self.stat10(rvs)
+
+    def stat10(self, x):
+        n = len(x)
+
+        if n > 3:
+            xtmp = x[:n].copy()
+            xtmp.sort()
+            tmp1 = n * (n - 1)
+            tmp2 = tmp1 * (n - 2)
+            tmp3 = tmp2 * (n - 3)
+            b0 = sum(xtmp[:3]) + sum(xtmp[3:])
+            b1 = 1.0 * xtmp[1] + 2.0 * xtmp[2] + sum(i * xtmp[i] for i in range(3, n))
+            b2 = 2.0 * xtmp[2] + sum((i * (i - 1)) * xtmp[i] for i in range(3, n))
+            b3 = sum((i * (i - 1) * (i - 2)) * xtmp[i] for i in range(3, n))
+            b0 /= n
+            b1 /= tmp1
+            b2 /= tmp2
+            b3 /= tmp3
+            l2 = 2.0 * b1 - b0
+            l3 = 6.0 * b2 - 6.0 * b1 + b0
+            l4 = 20.0 * b3 - 30.0 * b2 + 12.0 * b1 - b0
+            tau3 = l3 / l2
+            tau4 = l4 / l2
+
+            if 1 <= n <= 25:
+                mutau4 = 0.12383
+                vtau3 = 0.0088038
+                vtau4 = 0.0049295
+            elif 25 < n <= 50:
+                mutau4 = 0.12321
+                vtau3 = 0.0040493
+                vtau4 = 0.0020802
+            else:
+                mutau4 = 0.12291
+                vtau3 = 0.0019434
+                vtau4 = 0.00095785
+
+            statTLmom = (tau3 ** 2) / vtau3 + (tau4 - mutau4) ** 2 / vtau4
+            return statTLmom
+
+
+class Hosking3Test(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'HOSKING3'
+
+    def execute_statistic(self, rvs):
+        return self.stat12(rvs)
+
+    def stat12(self, x):
+        n = len(x)
+
+        if n > 3:
+            xtmp = x[:n]
+            xtmp.sort()
+            l22 = 0.0
+            l32 = 0.0
+            l42 = 0.0
+            for i in range(2, n):
+                l22 += xtmp[i - 1] * self.pstarmod2(2, n, i)
+                l32 += xtmp[i - 1] * self.pstarmod2(3, n, i)
+                l42 += xtmp[i - 1] * self.pstarmod2(4, n, i)
+            l22 /= 2.0 * math.comb(n, 6)
+            l32 /= 3.0 * math.comb(n, 7)
+            l42 /= 4.0 * math.comb(n, 8)
+            tau32 = l32 / l22
+            tau42 = l42 / l22
+
+            if 1 <= n <= 25:
+                mutau42 = 0.044174
+                vtau32 = 0.0086570
+                vtau42 = 0.0042066
+            elif 25 < n <= 50:
+                mutau42 = 0.040389
+                vtau32 = 0.0033818
+                vtau42 = 0.0013301
+            else:
+                mutau42 = 0.039030
+                vtau32 = 0.0015120
+                vtau42 = 0.00054207
+
+            statTLmom2 = (tau32 ** 2) / vtau32 + (tau42 - mutau42) ** 2 / vtau42
+            return statTLmom2
+
+    def pstarmod2(self, r, n, i):
+        res = 0.0
+        for k in range(r):
+            res += (-1) ** k * math.comb(r - 1, k) * math.comb(i - 1, r + 2 - 1 - k) * math.comb(n - i, 2 + k)
+        return res
+
+
+class Hosking4Test(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'HOSKING4'
+
+    def execute_statistic(self, rvs):
+        return self.stat13(rvs)
+
+    def stat13(self, x):
+        n = len(x)
+
+        if n > 3:
+            xtmp = x[:n]
+            xtmp.sort()
+            l23 = 0.0
+            l33 = 0.0
+            l43 = 0.0
+            for i in range(2, n):
+                l23 += xtmp[i - 1] * self.pstarmod3(2, n, i)
+                l33 += xtmp[i - 1] * self.pstarmod3(3, n, i)
+                l43 += xtmp[i - 1] * self.pstarmod3(4, n, i)
+            l23 /= 2.0 * math.comb(n, 8)
+            l33 /= 3.0 * math.comb(n, 9)
+            l43 /= 4.0 * math.comb(n, 10)
+            tau33 = l33 / l23
+            tau43 = l43 / l23
+
+            if 1 <= n <= 25:
+                mutau43 = 0.033180
+                vtau33 = 0.0095765
+                vtau43 = 0.0044609
+            elif 25 < n <= 50:
+                mutau43 = 0.028224
+                vtau33 = 0.0033813
+                vtau43 = 0.0011823
+            else:
+                mutau43 = 0.026645
+                vtau33 = 0.0014547
+                vtau43 = 0.00045107
+
+            statTLmom3 = (tau33 ** 2) / vtau33 + (tau43 - mutau43) ** 2 / vtau43
+            return statTLmom3
+
+    def pstarmod3(self, r, n, i):
+        res = 0.0
+        for k in range(r):
+            res += (-1) ** k * math.comb(r - 1, k) * math.comb(i - 1, r + 3 - 1 - k) * math.comb(n - i, 3 + k)
+        return res
+
+
+class ZhangWuCTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'ZWC'
+
+    def execute_statistic(self, rvs):
+        n = len(rvs)
+
+        if n > 3:
+            Phiz = np.zeros(n)
+            meanX = np.mean(rvs)
+            varX = np.var(rvs, ddof=1)
+            sdX = np.sqrt(varX)
+            for i in range(n):
+                Phiz[i] = scipy_stats.norm.cdf((rvs[i] - meanX) / sdX)
+            Phiz.sort()
+            statZC = 0.0
+            for i in range(1, n + 1):
+                statZC += np.log((1.0 / Phiz[i - 1] - 1.0) / ((n - 0.5) / (i - 0.75) - 1.0)) ** 2
+            return statZC
+
+
+class ZhangWuATest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'ZWA'
+
+    def execute_statistic(self, rvs):
+        n = len(rvs)
+
+        if n > 3:
+            Phiz = np.zeros(n)
+            meanX = np.mean(rvs)
+            varX = np.var(rvs)
+            sdX = np.sqrt(varX)
+            for i in range(n):
+                Phiz[i] = scipy_stats.norm.cdf((rvs[i] - meanX) / sdX)
+            Phiz.sort()
+            statZA = 0.0
+            for i in range(1, n + 1):
+                statZA += np.log(Phiz[i - 1]) / ((n - i) + 0.5) + np.log(1.0 - Phiz[i - 1]) / ((i - 0.5))
+            statZA = -statZA
+            statZA = 10.0 * statZA - 32.0
+            return statZA
+
+
+class GlenLeemisBarrTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'GLB'
+
+    def execute_statistic(self, rvs):
+        n = len(rvs)
+
+        if n > 3:
+            Phiz = np.zeros(n)
+            meanX = np.mean(rvs)
+            varX = np.var(rvs, ddof=1)
+            sdX = np.sqrt(varX)
+            for i in range(n):
+                Phiz[i] = scipy_stats.norm.cdf((rvs[i] - meanX) / sdX)
+            Phiz.sort()
+            for i in range(1, n + 1):
+                Phiz[i - 1] = scipy_stats.beta.cdf(Phiz[i - 1], i, n - i + 1)
+            Phiz.sort()
+            statPS = 0
+            for i in range(1, n + 1):
+                statPS += (2 * n + 1 - 2 * i) * np.log(Phiz[i - 1]) + (2 * i - 1) * np.log(1 - Phiz[i - 1])
+            return -n - statPS / n
+
+
+class DoornikHansenTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'DH'
+
+    def execute_statistic(self, rvs):
+        return self.doornik_hansen(rvs)
+
+    def doornik_hansen(self, x):
+        n = len(x)
+        m2 = scipy_stats.moment(x, moment=2)
+        m3 = scipy_stats.moment(x, moment=3)
+        m4 = scipy_stats.moment(x, moment=4)
+
+        b1 = m3 / (m2 ** 1.5)
+        b2 = m4 / (m2 ** 2)
+
+        z1 = self.skewness_to_z1(b1, n)
+        z2 = self.kurtosis_to_z2(b1, b2, n)
+
+        stat = z1 ** 2 + z2 ** 2
+        return stat
+
+    def skewness_to_z1(self, skew, n):
+        b = 3 * ((n ** 2) + 27 * n - 70) * (n + 1) * (n + 3) / ((n - 2) * (n + 5) * (n + 7) * (n + 9))
+        w2 = -1 + math.sqrt(2 * (b - 1))
+        d = 1 / math.sqrt(math.log(math.sqrt(w2)))
+        y = skew * math.sqrt((n + 1) * (n + 3) / (6 * (n - 2)))
+        a = math.sqrt(2 / (w2 - 1))
+        z = d * math.log((y / a) + math.sqrt((y / a) ** 2 + 1))
+        return z
+
+    def kurtosis_to_z2(self, skew, kurt, n):
+        n2 = n ** 2
+        n3 = n ** 3
+        p1 = n2 + 15 * n - 4
+        p2 = n2 + 27 * n - 70
+        p3 = n2 + 2 * n - 5
+        p4 = n3 + 37 * n2 + 11 * n - 313
+        d = (n - 3) * (n + 1) * p1
+        a = (n - 2) * (n + 5) * (n + 7) * p2 / (6 * d)
+        c = (n - 7) * (n + 5) * (n + 7) * p3 / (6 * d)
+        k = (n + 5) * (n + 7) * p4 / (12 * d)
+        alpha = a + skew ** 2 * c
+        q = 2 * (kurt - 1 - skew ** 2) * k
+        z = (0.5 * q / alpha) ** (1 / 3) - 1 + 1 / (9 * alpha)
+        z *= math.sqrt(9 * alpha)
+        return z
+
+
+class RobustJarqueBeraTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'RJB'
+
+    def execute_statistic(self, rvs):
+        y = np.sort(rvs)
+        n = len(rvs)
+        M = np.median(y)
+        c = np.sqrt(math.pi / 2)
+        J = (c / n) * np.sum(np.abs(rvs - M))
+        m_3 = scipy_stats.moment(y, moment=3)
+        m_4 = scipy_stats.moment(y, moment=4)
+        RJB = (n / 6) * (m_3 / J ** 3) ** 2 + (n / 64) * (m_4 / J ** 4 - 3) ** 2
+        return RJB
+
+
+class BontempsMeddahi1Test(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'BM1'
+
+    def execute_statistic(self, rvs):
+        n = len(rvs)
+
+        if n > 3:
+            z = [0.0] * n
+            varX = 0.0
+            meanX = 0.0
+            tmp3 = 0.0
+            tmp4 = 0.0
+
+            for i in range(n):
+                meanX += rvs[i]
+            meanX /= n
+
+            for i in range(n):
+                varX += rvs[i] ** 2
+            varX = (n * (varX / n - meanX ** 2)) / (n - 1)
+            sdX = math.sqrt(varX)
+
+            for i in range(n):
+                z[i] = (rvs[i] - meanX) / sdX
+
+            for i in range(n):
+                tmp3 += (z[i] ** 3 - 3 * z[i]) / math.sqrt(6)
+                tmp4 += (z[i] ** 4 - 6 * z[i] ** 2 + 3) / (2 * math.sqrt(6))
+
+            statBM34 = (tmp3 ** 2 + tmp4 ** 2) / n
+            return statBM34
+
+
+class BontempsMeddahi2Test(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'BM2'
+
+    def execute_statistic(self, rvs):
+        return self.stat15(rvs)
+
+    def stat15(self, x):
+        n = len(x)
+
+        if n > 3:
+            z = np.zeros(n)
+            meanX = np.mean(x)
+            varX = np.var(x, ddof=1)
+            sdX = np.sqrt(varX)
+            for i in range(n):
+                z[i] = (x[i] - meanX) / sdX
+            tmp3 = np.sum((z ** 3 - 3 * z) / np.sqrt(6))
+            tmp4 = np.sum((z ** 4 - 6 * z ** 2 + 3) / (2 * np.sqrt(6)))
+            tmp5 = np.sum((z ** 5 - 10 * z ** 3 + 15 * z) / (2 * np.sqrt(30)))
+            tmp6 = np.sum((z ** 6 - 15 * z ** 4 + 45 * z ** 2 - 15) / (12 * np.sqrt(5)))
+            statBM36 = (tmp3 ** 2 + tmp4 ** 2 + tmp5 ** 2 + tmp6 ** 2) / n
+            return statBM36
+
+
+class BonettSeierTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'BS'
+
+    def execute_statistic(self, rvs):
+        return self.stat17(rvs)
+
+    def stat17(self, x):
+        n = len(x)
+
+        if n > 3:
+            m2 = 0.0
+            meanX = 0.0
+            term = 0.0
+
+            for i in range(n):
+                meanX += x[i]
+
+            meanX = meanX / float(n)
+
+            for i in range(n):
+                m2 += (x[i] - meanX) ** 2
+                term += abs(x[i] - meanX)
+
+            m2 = m2 / float(n)
+            term = term / float(n)
+            omega = 13.29 * (math.log(math.sqrt(m2)) - math.log(term))
+            statTw = math.sqrt(float(n + 2)) * (omega - 3.0) / 3.54
+            return statTw
+
+
+class MartinezIglewiczTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'MI'
+
+    def execute_statistic(self, rvs):
+        return self.stat32(rvs)
+
+    def stat32(self, x):
+        n = len(x)
+
+        if n > 3:
+            xtmp = np.copy(x)
+            xtmp.sort()
+            if n % 2 == 0:
+                M = (xtmp[n // 2] + xtmp[n // 2 - 1]) / 2.0
+            else:
+                M = xtmp[n // 2]
+
+            aux1 = x - M
+            xtmp = np.abs(aux1)
+            xtmp.sort()
+            if n % 2 == 0:
+                A = (xtmp[n // 2] + xtmp[n // 2 - 1]) / 2.0
+            else:
+                A = xtmp[n // 2]
+            A = 9.0 * A
+
+            z = aux1 / A
+            term1 = np.sum(aux1 ** 2 * (1 - z ** 2) ** 4)
+            term2 = np.sum((1 - z ** 2) * (1 - 5 * z ** 2))
+            term3 = np.sum(aux1 ** 2)
+
+            Sb2 = (n * term1) / term2 ** 2
+            statIn = (term3 / (n - 1)) / Sb2
+            return statIn
+
+
+class CabanaCabana1Test(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'CC1'
+
+    def execute_statistic(self, rvs):
+        return self.stat19(rvs)
+
+    def stat19(self, x):
+        n = len(x)
+
+        if n > 3:
+            zdata = (x - np.mean(x)) / np.std(x, ddof=1)
+            meanH3 = np.mean(zdata ** 3 - 3 * zdata) / np.sqrt(6)
+            meanH4 = np.mean(zdata ** 4 - 6 * zdata ** 2 + 3) / (2 * np.sqrt(6))
+            meanH5 = np.mean(zdata ** 5 - 10 * zdata ** 3 + 15 * zdata) / (2 * np.sqrt(30))
+            meanH6 = np.mean(zdata ** 6 - 15 * zdata ** 4 + 45 * zdata ** 2 - 15) / (12 * np.sqrt(5))
+            meanH7 = np.mean(zdata ** 7 - 21 * zdata ** 5 + 105 * zdata ** 3 - 105 * zdata) / (12 * np.sqrt(35))
+            meanH8 = np.mean(zdata ** 8 - 28 * zdata ** 6 + 210 * zdata ** 4 - 420 * zdata ** 2 + 105) / (
+                    24 * np.sqrt(70))
+            vectoraux1 = meanH4 + meanH5 * zdata / np.sqrt(2) + meanH6 * (zdata ** 2 - 1) / np.sqrt(6) + meanH7 * (
+                    zdata ** 3 - 3 * zdata) / (2 * np.sqrt(6)) + meanH8 * (zdata ** 4 - 6 * zdata ** 2 + 3) / (
+                                 2 * np.sqrt(30))
+            statTSl = np.max(np.abs(scipy_stats.norm.cdf(zdata) * meanH3 - scipy_stats.norm.pdf(zdata) * vectoraux1))
+            return statTSl
+
+
+class CabanaCabana2Test(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'CC2'
+
+    def execute_statistic(self, rvs):
+        return self.stat20(rvs)
+
+    def stat20(self, x):
+        n = len(x)
+
+        if n > 3:
+            z = (x - np.mean(x)) / np.std(x)
+            H0 = np.ones_like(z)
+            H1 = z
+            H2 = (z ** 2 - 1) / np.sqrt(2)
+            H3 = (z ** 3 - 3 * z) / np.sqrt(6)
+            H4 = (z ** 4 - 6 * z ** 2 + 3) / (2 * np.sqrt(6))
+            H5 = (z ** 5 - 10 * z ** 3 + 15 * z) / (2 * np.sqrt(30))
+            H6 = (z ** 6 - 15 * z ** 4 + 45 * z ** 2 - 15) / (12 * np.sqrt(5))
+            H7 = (z ** 7 - 21 * z ** 5 + 105 * z ** 3 - 105 * z) / (12 * np.sqrt(35))
+            H8 = (z ** 8 - 28 * z ** 6 + 210 * z ** 4 - 420 * z ** 2 + 105) / (24 * np.sqrt(70))
+            H3tilde = np.sum(H3) / np.sqrt(n)
+            H4tilde = np.sum(H4) / np.sqrt(n)
+            H5tilde = np.sum(H5) / np.sqrt(n)
+            H6tilde = np.sum(H6) / np.sqrt(n)
+            H7tilde = np.sum(H7) / np.sqrt(n)
+            H8tilde = np.sum(H8) / np.sqrt(n)
+            vectoraux2 = (np.sqrt(2 / 1) * H0 + H2) * H5tilde + (np.sqrt(3 / 2) * H1 + H3) * H6tilde + (
+                    np.sqrt(4 / 3) * H2 + H4) * H7tilde + (np.sqrt(5 / 4) * H3 + H5) * H8tilde + (
+                                 np.sqrt(5 / 4) * H3 + H5) * H8tilde
+            statTKl = np.max(np.abs(
+                -scipy_stats.norm.pdf(z, 0, 1) * H3tilde + (
+                        scipy_stats.norm.cdf(z, 0, 1) - z * scipy_stats.norm.pdf(z, 0,
+                                                                                 1)) * H4tilde - scipy_stats.norm.pdf(
+                    z, 0,
+                    1) * vectoraux2))
+            return statTKl
+
+
+class ChenShapiroTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'CS'
+
+    def execute_statistic(self, rvs):
+        return self.stat26(rvs)
+
+    def stat26(self, x):
+        n = len(x)
+
+        if n > 3:
+            xs = np.sort(x)
+            meanX = np.mean(x)
+            varX = np.var(x, ddof=1)
+            M = scipy_stats.norm.ppf(np.arange(1, n + 1) / (n + 0.25) - 0.375 / (n + 0.25))
+            statCS = np.sum((xs[1:] - xs[:-1]) / (M[1:] - M[:-1])) / ((n - 1) * np.sqrt(varX))
+            statCS = np.sqrt(n) * (1.0 - statCS)
+            return statCS
+
+
+class ZhangQTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'ZQ'
+
+    def execute_statistic(self, rvs):
+        return self.stat27(rvs)
+
+    def stat27(self, x):
+        n = len(x)
+
+        if n > 3:
+            u = scipy_stats.norm.ppf((np.arange(1, n + 1) - 0.375) / (n + 0.25))
+            xs = np.sort(x)
+            a = np.zeros(n)
+            b = np.zeros(n)
+            term = 0.0
+            for i in range(2, n + 1):
+                a[i - 1] = 1.0 / ((n - 1) * (u[i - 1] - u[0]))
+                term += a[i - 1]
+            a[0] = -term
+            b[0] = 1.0 / ((n - 4) * (u[0] - u[4]))
+            b[n - 1] = -b[0]
+            b[1] = 1.0 / ((n - 4) * (u[1] - u[5]))
+            b[n - 2] = -b[1]
+            b[2] = 1.0 / ((n - 4) * (u[2] - u[6]))
+            b[n - 3] = -b[2]
+            b[3] = 1.0 / ((n - 4) * (u[3] - u[7]))
+            b[n - 4] = -b[3]
+            for i in range(5, n - 3):
+                b[i - 1] = (1.0 / (u[i - 1] - u[i + 3]) - 1.0 / (u[i - 5] - u[i - 1])) / (n - 4)
+            q1 = np.dot(a, xs)
+            q2 = np.dot(b, xs)
+            statQ = np.log(q1 / q2)
+            return statQ
+
+
+class CoinTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'COIN'
+
+    def execute_statistic(self, rvs):
+        return self.stat30(rvs)
+
+    def stat30(self, x):
+        n = len(x)
+
+        if n > 3:
+            z = [0] * n
+            M = [n // 2]
+            sp = [0] * M[0]
+            a = [0] * n
+            varX = 0.0
+            meanX = 0.0
+            term1 = 0.0
+            term2 = 0.0
+            term3 = 0.0
+            term4 = 0.0
+            term6 = 0.0
+
+            for i in range(n):
+                meanX += x[i]
+            meanX /= n
+
+            for i in range(n):
+                varX += x[i] ** 2
+            varX = (n * (varX / n - meanX ** 2)) / (n - 1)
+            sdX = math.sqrt(varX)
+
+            for i in range(n):
+                z[i] = (x[i] - meanX) / sdX
+
+            z.sort()
+            self.nscor2(sp, n, M)
+
+            if n % 2 == 0:
+                for i in range(n // 2):
+                    a[i] = -sp[i]
+                for i in range(n // 2, n):
+                    a[i] = sp[n - i - 1]
+            else:
+                for i in range(n // 2):
+                    a[i] = -sp[i]
+                a[n // 2] = 0.0
+                for i in range(n // 2 + 1, n):
+                    a[i] = sp[n - i - 1]
+
+            for i in range(n):
+                term1 += a[i] ** 4
+                term2 += a[i] * z[i]
+                term3 += a[i] ** 2
+                term4 += a[i] ** 3 * z[i]
+                term6 += a[i] ** 6
+
+            statbeta32 = ((term1 * term2 - term3 * term4) / (term1 * term1 - term3 * term6)) ** 2
+            return statbeta32
+
+    def correc(self, i, n):
+        c1 = [9.5, 28.7, 1.9, 0., -7., -6.2, -1.6]
+        c2 = [-6195., -9569., -6728., -17614., -8278., -3570., 1075.]
+        c3 = [93380., 175160., 410400., 2157600., 2.376e6, 2.065e6, 2.065e6]
+        mic = 1e-6
+        c14 = 1.9e-5
+
+        if i * n == 4:
+            return c14
+        if i < 1 or i > 7:
+            return 0
+        if i != 4 and n > 20:
+            return 0
+        if i == 4 and n > 40:
+            return 0
+
+        an = 1. / (n * n)
+        i -= 1
+        return (c1[i] + an * (c2[i] + an * c3[i])) * mic
+
+    def nscor2(self, s, n, n2):
+        eps = [.419885, .450536, .456936, .468488]
+        dl1 = [.112063, .12177, .239299, .215159]
+        dl2 = [.080122, .111348, -.211867, -.115049]
+        gam = [.474798, .469051, .208597, .259784]
+        lam = [.282765, .304856, .407708, .414093]
+        bb = -.283833
+        d = -.106136
+        b1 = .5641896
+
+        if n2[0] > n / 2:
+            raise ValueError("n2>n")
+        if n <= 1:
+            raise ValueError("n<=1")
+        if n > 2000:
+            print("Values may be inaccurate because of the size of N")
+
+        s[0] = b1
+        if n == 2:
+            return
+
+        an = n
+        k = 3
+        if n2[0] < k:
+            k = n2[0]
+
+        for i in range(k):
+            ai = i + 1
+            e1 = (ai - eps[i]) / (an + gam[i])
+            e2 = e1 ** lam[i]
+            s[i] = e1 + e2 * (dl1[i] + e2 * dl2[i]) / an - self.correc(i + 1, n)
+
+        if n2[0] > k:
+            for i in range(3, n2[0]):
+                ai = i + 1
+                e1 = (ai - eps[3]) / (an + gam[3])
+                e2 = e1 ** (lam[3] + bb / (ai + d))
+                s[i] = e1 + e2 * (dl1[3] + e2 * dl2[3]) / an - self.correc(i + 1, n)
+
+        for i in range(n2[0]):
+            s[i] = -scipy_stats.norm.ppf(s[i], 0., 1.)
+
+        return
+
+

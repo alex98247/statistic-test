@@ -3,6 +3,7 @@ import numpy as np
 import unittest
 import stattest.stats as stats
 from stattest.test import KSTest
+from stattest.test.normality import Hosking2Test
 
 
 class TestStatMethods(unittest.TestCase):
@@ -11,7 +12,7 @@ class TestStatMethods(unittest.TestCase):
         self.assertEqual(3.5, ch2)
 
     def test_kstest(self):
-        ks_test = KSTest()
+        ks_test = Hosking2Test()
         x = sts.norm.rvs(size=10)
 
         x1 = sts.norm.rvs(size=10, loc=11)
@@ -99,6 +100,13 @@ class TestStatMethods(unittest.TestCase):
         data = np.sort(data)
         ch2 = stats.mi_test(data)
         self.assertAlmostEqual(0, ch2, 5)
+
+    def test_rjb(self):
+        data = np.array(
+            [1.2318068, -0.3417207, -1.2044307, -0.7724564, -0.2145365, -1.0119879,  0.2222634])
+        data = np.sort(data)
+        result = stats.rjb_test(data)
+        self.assertAlmostEqual(0, result, 5)
 
 
 if __name__ == '__main__':
