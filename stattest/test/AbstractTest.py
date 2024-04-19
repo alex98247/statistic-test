@@ -10,7 +10,7 @@ class AbstractTest:
     def test(self, rvs, alpha):
         raise NotImplementedError("Method is not implemented")
 
-    def execute_statistic(self, rvs):
+    def execute_statistic(self, rvs, **kwargs):
         raise NotImplementedError("Method is not implemented")
 
     def generate(self, size, **kwargs):

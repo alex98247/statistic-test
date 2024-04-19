@@ -1,29 +1,35 @@
 import math
 
-from stattest.core.norm import pdf_norm
-from stattest.core.sample import central_moment
+from stattest.core.distribution.norm import pdf_norm
 from stattest.test.AbstractTest import AbstractTest
-from stattest.core import norm
+from stattest.core.distribution import norm
 import numpy as np
 import scipy.stats as scipy_stats
-from scipy.stats.stats import normaltest
 import pandas as pd
 
-cache = {}
+from stattest.test.cache import MonteCarloCacheService
 
 
 class AbstractNormalityTest(AbstractTest):
 
-    def __init__(self):
+    def __init__(self, cache=MonteCarloCacheService()):
         self.mean = 0
         self.var = 1
+        self.cache = cache
 
-    def calculate_critical_value(self, rvs_size, alpha, count=500_000):
-        global cache
-        if self.code() not in cache.keys():
-            cache[self.code()] = {}
-        if rvs_size in cache[self.code()].keys():
-            return cache[self.code()][rvs_size]
+    def calculate_critical_value(self, rvs_size, alpha, count=1_000_000):
+        keys_cr = [self.code(), str(rvs_size), str(alpha)]
+        x_cr = self.cache.get_with_level(keys_cr)
+        if x_cr is not None:
+            return x_cr
+
+        d = self.cache.get_distribution(self.code(), rvs_size)
+        if d is not None:
+            ecdf = scipy_stats.ecdf(d)
+            x_cr = np.quantile(ecdf.cdf.quantiles, q=1 - alpha)
+            self.cache.put_with_level(keys_cr, x_cr)
+            self.cache.flush()
+            return x_cr
 
         result = np.zeros(count)
 
@@ -35,7 +41,9 @@ class AbstractNormalityTest(AbstractTest):
 
         ecdf = scipy_stats.ecdf(result)
         x_cr = np.quantile(ecdf.cdf.quantiles, q=1 - alpha)
-        cache[self.code()][rvs_size] = x_cr
+        self.cache.put_with_level(keys_cr, x_cr)
+        self.cache.put_distribution(self.code(), rvs_size, result)
+        self.cache.flush()
         return x_cr
 
     def test(self, rvs, alpha):
@@ -48,24 +56,72 @@ class AbstractNormalityTest(AbstractTest):
         return norm.generate_norm(size, mean, var)
 
 
+# TODO: make common
 class KSTest(AbstractNormalityTest):
 
     @staticmethod
     def code():
         return 'KS'
 
-    def execute_statistic(self, rvs):
+    def execute_statistic(self, rvs, alternative='two-sided', mode='auto'):
         """
+        Title: The Kolmogorov-Smirnov statistic for the Laplace distribution Ref. (book or article): Puig,
+        P. and Stephens, M. A. (2000). Tests of fit for the Laplace distribution, with applications. Technometrics
+        42, 417-424.
 
+        :param alternative: {'two-sided', 'less', 'greater'}, optional
+        :param mode: {'auto', 'exact', 'approx', 'asymp'}, optional
+        Defines the distribution used for calculating the p-value.
+        The following options are available (default is 'auto'):
+
+          * 'auto' : selects one of the other options.
+          * 'exact' : uses the exact distribution of test statistic.
+          * 'approx' : approximates the two-sided probability with twice
+            the one-sided probability
+          * 'asymp': uses asymptotic distribution of test statistic
         :param rvs: unsorted vector
         :return:
         """
         rvs = np.sort(rvs)
         cdf_vals = scipy_stats.norm.cdf(rvs)
-        d_plus, _ = KSTest.__compute_dplus(cdf_vals, rvs)
+        n = len(rvs)
+
         d_minus, _ = KSTest.__compute_dminus(cdf_vals, rvs)
 
-        return d_plus if d_plus > d_minus else d_minus
+        if alternative == 'greater':
+            d_plus, d_location = KSTest.__compute_dplus(cdf_vals, rvs)
+            return d_plus  # KstestResult(Dplus, distributions.ksone.sf(Dplus, N), statistic_location=d_location, statistic_sign=1)
+        if alternative == 'less':
+            d_minus, d_location = KSTest.__compute_dminus(cdf_vals, rvs)
+            return d_minus  # KstestResult(Dminus, distributions.ksone.sf(Dminus, N), statistic_location=d_location, statistic_sign=-1)
+
+        # alternative == 'two-sided':
+        d_plus, d_plus_location = KSTest.__compute_dplus(cdf_vals, rvs)
+        d_minus, d_minus_location = KSTest.__compute_dminus(cdf_vals, rvs)
+        if d_plus > d_minus:
+            D = d_plus
+            d_location = d_plus_location
+            d_sign = 1
+        else:
+            D = d_minus
+            d_location = d_minus_location
+            d_sign = -1
+
+        if mode == 'auto':  # Always select exact
+            mode = 'exact'
+        if mode == 'exact':
+            prob = scipy_stats.distributions.kstwo.sf(D, n)
+        elif mode == 'asymp':
+            prob = scipy_stats.distributions.kstwobign.sf(D * np.sqrt(n))
+        else:
+            # mode == 'approx'
+            prob = 2 * scipy_stats.distributions.ksone.sf(D, n)
+        # print('PROB', prob)
+        prob = np.clip(prob, 0, 1)
+        return D
+
+    def calculate_critical_value(self, rvs_size, alpha, count=500_000):
+        return scipy_stats.distributions.kstwo.ppf(1 - alpha, rvs_size)
 
     @staticmethod
     def __compute_dplus(cdf_vals, rvs):
@@ -96,8 +152,15 @@ class ChiSquareTest(AbstractNormalityTest):
         f_obs = np.asanyarray(rvs)
         f_obs_float = f_obs.astype(np.float64)
         f_exp = pdf_norm(rvs)
+        scipy_stats.chi2_contingency()
         terms = (f_obs_float - f_exp) ** 2 / f_exp
         return terms.sum(axis=0)
+
+
+# Values from Stephens, M A, "EDF Statistics for Goodness of Fit and
+#             Some Comparisons", Journal of the American Statistical
+#             Association, Vol. 69, Issue 347, Sept. 1974, pp 730-737
+_Avals_norm = np.array([0.576, 0.656, 0.787, 0.918, 1.092])
 
 
 class ADTest(AbstractNormalityTest):
@@ -107,18 +170,32 @@ class ADTest(AbstractNormalityTest):
         return 'AD'
 
     def execute_statistic(self, rvs):
+        """
+        Title: The Anderson-Darling test Ref. (book or article): See package nortest and also Table 4.9 p. 127 in M.
+        A. Stephens, “Tests Based on EDF Statistics,” In: R. B. D’Agostino and M. A. Stephens, Eds., Goodness-of-Fit
+        Techniques, Marcel Dekker, New York, 1986, pp. 97-193.
+
+        :param rvs:
+        :return:
+        """
         n = len(rvs)
 
         s = np.std(rvs, ddof=1, axis=0)
         y = np.sort(rvs)
         xbar = np.mean(rvs, axis=0)
         w = (y - xbar) / s
-        logcdf = scipy_stats.distributions.norm.logcdf(w)
-        logsf = scipy_stats.distributions.norm.logsf(w)
+        log_cdf = scipy_stats.distributions.norm.logcdf(w)
+        log_sf = scipy_stats.distributions.norm.logsf(w)
 
         i = np.arange(1, n + 1)
-        A2 = -n - np.sum((2 * i - 1.0) / n * (logcdf + logsf[::-1]), axis=0)
+        A2 = -n - np.sum((2 * i - 1.0) / n * (log_cdf + log_sf[::-1]), axis=0)
         return A2
+
+    def calculate_critical_value(self, rvs_size, alpha, count=500_000):
+        # sig = [0.15, 0.10, 0.05, 0.025, 0.01].index(alpha)
+        # critical = np.around(_Avals_norm / (1.0 + 4.0 / rvs_size - 25.0 / rvs_size / rvs_size), 3)
+        # print(critical[sig])
+        return super().calculate_critical_value(rvs_size, alpha)
 
 
 class SWTest(AbstractNormalityTest):
@@ -194,7 +271,7 @@ class SWMTest(AbstractNormalityTest):
         return CM
 
 
-class LillieforsTest(AbstractNormalityTest):
+class LillieforsTest(KSTest):
 
     @staticmethod
     def code():
@@ -204,8 +281,7 @@ class LillieforsTest(AbstractNormalityTest):
         x = np.asarray(rvs)
         z = (x - x.mean()) / x.std(ddof=1)
 
-        ks_test = KSTest()
-        d_ks = ks_test.execute_statistic(z)
+        d_ks = super().execute_statistic(z)
 
         return d_ks
 
@@ -1035,13 +1111,14 @@ class CabanaCabana1Test(AbstractNormalityTest):
 
         if n > 3:
             zdata = (x - np.mean(x)) / np.std(x, ddof=1)
-            meanH3 = np.mean(zdata ** 3 - 3 * zdata) / np.sqrt(6)
-            meanH4 = np.mean(zdata ** 4 - 6 * zdata ** 2 + 3) / (2 * np.sqrt(6))
-            meanH5 = np.mean(zdata ** 5 - 10 * zdata ** 3 + 15 * zdata) / (2 * np.sqrt(30))
-            meanH6 = np.mean(zdata ** 6 - 15 * zdata ** 4 + 45 * zdata ** 2 - 15) / (12 * np.sqrt(5))
-            meanH7 = np.mean(zdata ** 7 - 21 * zdata ** 5 + 105 * zdata ** 3 - 105 * zdata) / (12 * np.sqrt(35))
-            meanH8 = np.mean(zdata ** 8 - 28 * zdata ** 6 + 210 * zdata ** 4 - 420 * zdata ** 2 + 105) / (
-                    24 * np.sqrt(70))
+            meanH3 = np.sum(zdata ** 3 - 3 * zdata) / (np.sqrt(6) * np.sqrt(n))
+            meanH4 = np.sum(zdata ** 4 - 6 * zdata ** 2 + 3) / (2 * np.sqrt(6) * np.sqrt(n))
+            meanH5 = np.sum(zdata ** 5 - 10 * zdata ** 3 + 15 * zdata) / (2 * np.sqrt(30) * np.sqrt(n))
+            meanH6 = np.sum(zdata ** 6 - 15 * zdata ** 4 + 45 * zdata ** 2 - 15) / (12 * np.sqrt(5) * np.sqrt(n))
+            meanH7 = np.sum(zdata ** 7 - 21 * zdata ** 5 + 105 * zdata ** 3 - 105 * zdata) / (
+                    12 * np.sqrt(35) * np.sqrt(n))
+            meanH8 = np.sum(zdata ** 8 - 28 * zdata ** 6 + 210 * zdata ** 4 - 420 * zdata ** 2 + 105) / (
+                    24 * np.sqrt(70) * np.sqrt(n))
             vectoraux1 = meanH4 + meanH5 * zdata / np.sqrt(2) + meanH6 * (zdata ** 2 - 1) / np.sqrt(6) + meanH7 * (
                     zdata ** 3 - 3 * zdata) / (2 * np.sqrt(6)) + meanH8 * (zdata ** 4 - 6 * zdata ** 2 + 3) / (
                                  2 * np.sqrt(30))
@@ -1063,30 +1140,58 @@ class CabanaCabana2Test(AbstractNormalityTest):
 
         if n > 3:
             z = (x - np.mean(x)) / np.std(x)
-            H0 = np.ones_like(z)
-            H1 = z
-            H2 = (z ** 2 - 1) / np.sqrt(2)
-            H3 = (z ** 3 - 3 * z) / np.sqrt(6)
-            H4 = (z ** 4 - 6 * z ** 2 + 3) / (2 * np.sqrt(6))
-            H5 = (z ** 5 - 10 * z ** 3 + 15 * z) / (2 * np.sqrt(30))
-            H6 = (z ** 6 - 15 * z ** 4 + 45 * z ** 2 - 15) / (12 * np.sqrt(5))
-            H7 = (z ** 7 - 21 * z ** 5 + 105 * z ** 3 - 105 * z) / (12 * np.sqrt(35))
-            H8 = (z ** 8 - 28 * z ** 6 + 210 * z ** 4 - 420 * z ** 2 + 105) / (24 * np.sqrt(70))
-            H3tilde = np.sum(H3) / np.sqrt(n)
-            H4tilde = np.sum(H4) / np.sqrt(n)
-            H5tilde = np.sum(H5) / np.sqrt(n)
-            H6tilde = np.sum(H6) / np.sqrt(n)
-            H7tilde = np.sum(H7) / np.sqrt(n)
-            H8tilde = np.sum(H8) / np.sqrt(n)
-            vectoraux2 = (np.sqrt(2 / 1) * H0 + H2) * H5tilde + (np.sqrt(3 / 2) * H1 + H3) * H6tilde + (
+            H0 = np.zeros(n)
+            H1 = np.zeros(n)
+            H2 = np.zeros(n)
+            H3 = np.zeros(n)
+            H4 = np.zeros(n)
+            H5 = np.zeros(n)
+            H6 = np.zeros(n)
+            H7 = np.zeros(n)
+            H8 = np.zeros(n)
+
+            H3tilde = 0
+            H4tilde = 0
+            H5tilde = 0
+            H6tilde = 0
+            H7tilde = 0
+            H8tilde = 0
+
+            for i in range(n):
+                H0[i] = 1
+                H1[i] = z[i]
+                H2[i] = (math.pow(z[i], 2.0) - 1.0) / np.sqrt(2.0)
+                H3[i] = (math.pow(z[i], 3.0) - 3.0 * z[i]) / np.sqrt(6.0)
+                H4[i] = (math.pow(z[i], 4.0) - 6.0 * math.pow(z[i], 2.0) + 3.0) / (2.0 * np.sqrt(6.0))
+                H5[i] = (math.pow(z[i], 5.0) - 10.0 * math.pow(z[i], 3.0) + 15.0 * z[i]) / (2.0 * np.sqrt(30.0))
+                H6[i] = (math.pow(z[i], 6.0) - 15.0 * math.pow(z[i], 4.0) + 45.0 * math.pow(z[i], 2.0) - 15.0) / (
+                            12.0 * np.sqrt(5.0))
+                H7[i] = (math.pow(z[i], 7.0) - 21.0 * math.pow(z[i], 5.0) + 105.0 * math.pow(z[i], 3.0) - 105.0 * z[i]) / (
+                            12.0 * np.sqrt(35.0))
+                H8[i] = (math.pow(z[i], 8.0) - 28.0 * math.pow(z[i], 6.0) + 210.0 * math.pow(z[i], 4.0) - 420.0 * math.pow(z[i],
+                                                                                                               2.0) + 105.0) / (
+                                    24.0 * np.sqrt(70.0))
+
+                H3tilde = H3tilde + H3[i]
+                H4tilde = H4tilde + H4[i]
+                H5tilde = H5tilde + H5[i]
+                H6tilde = H6tilde + H6[i]
+                H7tilde = H7tilde + H7[i]
+                H8tilde = H8tilde + H8[i]
+
+            H3tilde = H3tilde / np.sqrt(n)
+            H4tilde = H4tilde / np.sqrt(n)
+            H5tilde = H5tilde / np.sqrt(n)
+            H6tilde = H6tilde / np.sqrt(n)
+            H7tilde = H7tilde / np.sqrt(n)
+            H8tilde = H8tilde / np.sqrt(n)
+
+            vectoraux2 = (np.sqrt(2) * H0 + H2) * H5tilde + (np.sqrt(3 / 2) * H1 + H3) * H6tilde + (
                     np.sqrt(4 / 3) * H2 + H4) * H7tilde + (np.sqrt(5 / 4) * H3 + H5) * H8tilde + (
                                  np.sqrt(5 / 4) * H3 + H5) * H8tilde
-            statTKl = np.max(np.abs(
-                -scipy_stats.norm.pdf(z, 0, 1) * H3tilde + (
-                        scipy_stats.norm.cdf(z, 0, 1) - z * scipy_stats.norm.pdf(z, 0,
-                                                                                 1)) * H4tilde - scipy_stats.norm.pdf(
-                    z, 0,
-                    1) * vectoraux2))
+            statTKl = np.max(np.abs(-scipy_stats.norm.pdf(z) * H3tilde + (
+                        scipy_stats.norm.cdf(z) - z * scipy_stats.norm.pdf(z)) * H4tilde - scipy_stats.norm.pdf(
+                z) * vectoraux2))
             return statTKl
 
 
@@ -1803,9 +1908,8 @@ class SpiegelhalterTest(AbstractNormalityTest):
                 cn = 0.5 * math.gamma((n + 1)) ** (1 / (n - 1)) / n
             else:
                 cn = (2 * math.pi) ** (1 / (2 * (n - 1))) * ((n * math.sqrt(n)) / math.e) ** (1 / (n - 1)) / (
-                            2 * math.e)  # Stirling approximation
+                        2 * math.e)  # Stirling approximation
 
             statSp = ((cn * u) ** (-(n - 1)) + g ** (-(n - 1))) ** (1 / (n - 1))
 
             return statSp  # Here is the test statistic value
-

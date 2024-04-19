@@ -3,7 +3,7 @@ import numpy as np
 import unittest
 import stattest.stats as stats
 from stattest.test import KSTest
-from stattest.test.normality import Hosking2Test
+from stattest.test.normality import ADTest
 
 
 class TestStatMethods(unittest.TestCase):
@@ -12,22 +12,21 @@ class TestStatMethods(unittest.TestCase):
         self.assertEqual(3.5, ch2)
 
     def test_kstest(self):
-        ks_test = Hosking2Test()
+        ks_test = ADTest()
+        value = ks_test.calculate_critical_value(20, 0.05)
         x = sts.norm.rvs(size=10)
 
         x1 = sts.norm.rvs(size=10, loc=11)
-        print(x1, sts.kstest(x1, 'norm').statistic)
+        print(x1, sts.kstest(x1, 'norm'))
 
         x1 = sts.norm.rvs(size=10, scale=5)
-        print(x1, sts.kstest(x1, 'norm').statistic)
+        print(x1, sts.kstest(x1, 'norm'))
 
         x1 = sts.norm.rvs(size=10, loc=11, scale=5)
-        print(x1, sts.kstest(x1, 'norm').statistic)
+        print(x1, sts.kstest(x1, 'norm'))
 
         ch2 = ks_test.execute_statistic(x)
-#[ 0.38323312 -1.10386561  0.75226465 -2.23024566 -0.27247827  0.95926434,  0.42329541 -0.11820711  0.90892169 -0.29045373]
-# 0.18573457378941832
-        self.assertEqual(sts.kstest(x, 'norm').statistic, ch2)
+        self.assertEqual(sts.kstest(x, 'norm'), ch2)
 
     def test_swstest(self):
         ch2 = stats.swstest([16, 18, 16])
@@ -44,7 +43,8 @@ class TestStatMethods(unittest.TestCase):
 
     def test_adstest(self):
         ch2 = stats.adstest([16, 18, 16, 14, 12, 12, 16, 18, 16, 14, 12, 12])
-        self.assertAlmostEqual(0.6822883, ch2, 5)
+        anderson = sts.anderson([16, 18, 16, 14, 12, 12, 16, 18, 16, 14, 12, 12])
+        self.assertAlmostEqual(anderson, ch2, 5)
 
     def test_cvmtest(self):
         data = np.array([12, 12, 12, 12, 14, 14, 16, 16, 16, 16, 18])
