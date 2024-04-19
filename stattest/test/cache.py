@@ -1,7 +1,7 @@
 import csv
 import os
 
-from stattest.core.store import FastJsonStoreService
+from stattest.core.store import FastJsonStoreService, write_json
 
 
 class MonteCarloCacheService(FastJsonStoreService):
@@ -47,3 +47,40 @@ class MonteCarloCacheService(FastJsonStoreService):
                 return list(reader)[0]
         else:
             return None
+
+
+class ThreadSafeMonteCarloCacheService(MonteCarloCacheService):
+
+    def __init__(self, lock, filename='cache.json', separator=':', csv_delimiter=';', dir_path='test_distribution'):
+        super().__init__(filename, separator, csv_delimiter, dir_path)
+        self.lock = lock
+
+    def flush(self):
+        """
+        Flush data to persisted store.
+        """
+
+        with self.lock:
+            write_json(self.filename, self.cache)
+
+    def put(self, key: str, value):
+        """
+        Put object to cache.
+
+        :param key: cache key
+        :param value: cache value
+        """
+        with self.lock:
+            self.cache[key] = value
+
+    def put_with_level(self, keys: [str], value):
+        """
+        Put JSON value by keys chain in 'keys' param.
+
+        :param value: value to put
+        :param keys: keys chain param
+        """
+
+        key = self._create_key(keys)
+        with self.lock:
+            self.cache[key] = value

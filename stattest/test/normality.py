@@ -140,6 +140,7 @@ class KSTest(AbstractNormalityTest):
         return d_minus[a_max], loc_max
 
 
+"""""
 class ChiSquareTest(AbstractNormalityTest):
 
     @staticmethod
@@ -155,7 +156,7 @@ class ChiSquareTest(AbstractNormalityTest):
         scipy_stats.chi2_contingency()
         terms = (f_obs_float - f_exp) ** 2 / f_exp
         return terms.sum(axis=0)
-
+"""""
 
 # Values from Stephens, M A, "EDF Statistics for Goodness of Fit and
 #             Some Comparisons", Journal of the American Statistical
@@ -191,11 +192,14 @@ class ADTest(AbstractNormalityTest):
         A2 = -n - np.sum((2 * i - 1.0) / n * (log_cdf + log_sf[::-1]), axis=0)
         return A2
 
+
+"""
     def calculate_critical_value(self, rvs_size, alpha, count=500_000):
         # sig = [0.15, 0.10, 0.05, 0.025, 0.01].index(alpha)
         # critical = np.around(_Avals_norm / (1.0 + 4.0 / rvs_size - 25.0 / rvs_size / rvs_size), 3)
         # print(critical[sig])
         return super().calculate_critical_value(rvs_size, alpha)
+"""
 
 
 class SWTest(AbstractNormalityTest):
@@ -287,6 +291,7 @@ class LillieforsTest(KSTest):
 
 
 # TODO: What is it
+"""
 class DATest(AbstractNormalityTest):
 
     @staticmethod
@@ -305,6 +310,7 @@ class DATest(AbstractNormalityTest):
         terms = (i - c) * y
         stat = terms.sum() / (n ** 2 * np.sqrt(m2))
         return stat
+"""
 
 
 class JBTest(AbstractNormalityTest):
@@ -1165,12 +1171,15 @@ class CabanaCabana2Test(AbstractNormalityTest):
                 H4[i] = (math.pow(z[i], 4.0) - 6.0 * math.pow(z[i], 2.0) + 3.0) / (2.0 * np.sqrt(6.0))
                 H5[i] = (math.pow(z[i], 5.0) - 10.0 * math.pow(z[i], 3.0) + 15.0 * z[i]) / (2.0 * np.sqrt(30.0))
                 H6[i] = (math.pow(z[i], 6.0) - 15.0 * math.pow(z[i], 4.0) + 45.0 * math.pow(z[i], 2.0) - 15.0) / (
-                            12.0 * np.sqrt(5.0))
-                H7[i] = (math.pow(z[i], 7.0) - 21.0 * math.pow(z[i], 5.0) + 105.0 * math.pow(z[i], 3.0) - 105.0 * z[i]) / (
-                            12.0 * np.sqrt(35.0))
-                H8[i] = (math.pow(z[i], 8.0) - 28.0 * math.pow(z[i], 6.0) + 210.0 * math.pow(z[i], 4.0) - 420.0 * math.pow(z[i],
-                                                                                                               2.0) + 105.0) / (
-                                    24.0 * np.sqrt(70.0))
+                        12.0 * np.sqrt(5.0))
+                H7[i] = (math.pow(z[i], 7.0) - 21.0 * math.pow(z[i], 5.0) + 105.0 * math.pow(z[i], 3.0) - 105.0 * z[
+                    i]) / (
+                                12.0 * np.sqrt(35.0))
+                H8[i] = (math.pow(z[i], 8.0) - 28.0 * math.pow(z[i], 6.0) + 210.0 * math.pow(z[i],
+                                                                                             4.0) - 420.0 * math.pow(
+                    z[i],
+                    2.0) + 105.0) / (
+                                24.0 * np.sqrt(70.0))
 
                 H3tilde = H3tilde + H3[i]
                 H4tilde = H4tilde + H4[i]
@@ -1190,7 +1199,7 @@ class CabanaCabana2Test(AbstractNormalityTest):
                     np.sqrt(4 / 3) * H2 + H4) * H7tilde + (np.sqrt(5 / 4) * H3 + H5) * H8tilde + (
                                  np.sqrt(5 / 4) * H3 + H5) * H8tilde
             statTKl = np.max(np.abs(-scipy_stats.norm.pdf(z) * H3tilde + (
-                        scipy_stats.norm.cdf(z) - z * scipy_stats.norm.pdf(z)) * H4tilde - scipy_stats.norm.pdf(
+                    scipy_stats.norm.cdf(z) - z * scipy_stats.norm.pdf(z)) * H4tilde - scipy_stats.norm.pdf(
                 z) * vectoraux2))
             return statTKl
 
@@ -1438,6 +1447,7 @@ class ZhangQStarTest(AbstractNormalityTest):
             return Qstar
 
 
+"""
 class ZhangQQStarTest(AbstractNormalityTest):
 
     @staticmethod
@@ -1478,6 +1488,7 @@ class ZhangQQStarTest(AbstractNormalityTest):
             stat = -2.0 * (np.log(pval1) + np.log(pval2))  # Combinaison des valeurs-p (Fisher, 1932)
 
             return stat  # Here is the test statistic value
+"""
 
 
 class SWRGTest(AbstractNormalityTest):
@@ -1561,6 +1572,7 @@ class GMGTest(AbstractNormalityTest):
             return statRsJ  # Here is the test statistic value
 
 
+"""
 class BHSTest(AbstractNormalityTest):
 
     @staticmethod
@@ -1870,6 +1882,7 @@ class BHSTest(AbstractNormalityTest):
             for i in range(n):
                 a[i] = a_cand[i]
                 w[i] = w_cand[i]
+"""
 
 
 class SpiegelhalterTest(AbstractNormalityTest):
