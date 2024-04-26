@@ -1145,7 +1145,10 @@ class CabanaCabana2Test(AbstractNormalityTest):
         n = len(x)
 
         if n > 3:
-            z = (x - np.mean(x)) / np.std(x)
+            # TODO: Move variance calculation
+            varX = n * np.var(x)/(n - 1)
+            sdX = np.sqrt(varX)
+            z = (x - np.mean(x)) / sdX
             H0 = np.zeros(n)
             H1 = np.zeros(n)
             H2 = np.zeros(n)
