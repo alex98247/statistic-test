@@ -617,9 +617,10 @@ class EPTest(AbstractNormalityTest):
         m2 = np.var(X, ddof=0)
 
         A = np.sqrt(2) * np.sum([np.exp(-(X[i] - X_mean) ** 2 / (4 * m2)) for i in range(n)])
-        B = 2 / n * np.sum(
-            [np.sum([np.exp(-(X[j] - X[k]) ** 2 / (2 * m2)) for j in range(0, k)])
-             for k in range(1, n)])
+        B = 0
+        for k in range(1, n):
+            B = B + np.sum(np.exp(-(X[:k] - X[k]) ** 2 / (2 * m2)))
+        B = 2 / n * B
         t = 1 + n / np.sqrt(3) + B - A
         return t
 
@@ -1146,7 +1147,7 @@ class CabanaCabana2Test(AbstractNormalityTest):
 
         if n > 3:
             # TODO: Move variance calculation
-            varX = n * np.var(x)/(n - 1)
+            varX = n * np.var(x) / (n - 1)
             sdX = np.sqrt(varX)
             z = (x - np.mean(x)) / sdX
             H0 = np.zeros(n)
@@ -1575,7 +1576,12 @@ class GMGTest(AbstractNormalityTest):
             return statRsJ  # Here is the test statistic value
 
 
+""" Title: Statistique de test de Brys-Hubert-Struyf MC-LR
+Ref. (book or article): Brys, G., Hubert, M. and Struyf, A. (2008), Goodness-of-fit tests based on a robust measure of 
+skewness, Computational Statistics, Vol. 23, Issue 3, pp. 429-442. 
 """
+
+
 class BHSTest(AbstractNormalityTest):
 
     @staticmethod
@@ -1589,188 +1595,184 @@ class BHSTest(AbstractNormalityTest):
         n = len(x)
 
         if n > 3:
-            x1 = np.array(x)
-            x1 = np.sort(x1)
-
+            # Computation of the value of the test statistic
+            x_sorted = np.sort(x)
             if n % 2 == 0:
-                in2 = n // 2
-                in3 = n // 2
-                x2 = x1[:in2]
-                x3 = x1[in2:]
+                x1 = x_sorted[:n // 2]
+                x2 = x_sorted[n // 2:]
             else:
-                in2 = n // 2 + 1
-                in3 = n // 2 + 1
-                x2 = x1[:in2]
-                x3 = x1[in2 - 1:]
+                x1 = x_sorted[:(n // 2) + 1]
+                x2 = x_sorted[(n // 2) + 1:]
 
             eps = [2.220446e-16, 2.225074e-308]
             iter = [1000, 0]
-            w1 = self.mc_C_d(x1, n, eps, iter)
-            iter = [1000, 0]
-            w2 = self.mc_C_d(x2, in2, eps, iter)
-            iter = [1000, 0]
-            w3 = self.mc_C_d(x3, in3, eps, iter)
 
-            omega1 = 0.0
-            omega2 = 0.198828
-            omega3 = 0.198828
+            print('ssss')
+            w1 = self.mc_C_d(x, eps, iter)
+            print('ssss1')
+            w2 = self.mc_C_d(x1, eps, iter)
+            w3 = self.mc_C_d(x2, eps, iter)
 
-            vec1 = w1 - omega1
-            vec2 = -w2 - omega2
-            vec3 = w3 - omega3
+            omega = [0.0, 0.198828, 0.198828]
+            vec = [w1 - omega[0], -w2 - omega[1], w3 - omega[2]]
 
-            invV11 = 0.8571890822945882
-            invV12 = -0.1051268907484579
-            invV13 = 0.1051268907484580
-            invV21 = -0.1051268907484579
-            invV22 = 0.3944817329840534
-            invV23 = -0.01109532299714422
-            invV31 = 0.1051268907484579
-            invV32 = -0.01109532299714422
-            invV33 = 0.3944817329840535
+            invV = np.array([
+                [0.8571890822945882, -0.1051268907484579, 0.1051268907484580],
+                [-0.1051268907484579, 0.3944817329840534, -0.01109532299714422],
+                [0.1051268907484579, -0.01109532299714422, 0.3944817329840535]
+            ])
 
-            statTMCLR = n * ((vec1 * invV11 + vec2 * invV21 + vec3 * invV31) * vec1 + (
-                    vec1 * invV12 + vec2 * invV22 + vec3 * invV32) * vec2 + (
-                                     vec1 * invV13 + vec2 * invV23 + vec3 * invV33) * vec3)
+            statTMCLR = n * np.dot(vec, np.dot(invV, vec))
             return statTMCLR  # Here is the test statistic value
 
-    def mc_C_d(self, z, n, eps, iter):
-        trace_lev = iter[0]
+    def mc_C_d(self, z, eps, iter):
+        """
+        NOTE:
+            eps = [eps1, eps2]
+            iter = [maxit, trace_lev] as input
+                  = [it, converged] as output
+        """
+        trace_lev = iter[1]
         it = 0
         converged = True
-        medc = 0.0
-        Large = float('inf') / 4.0
+        medc = None  # "the" result
+        #DBL_MAX = 1.7976931348623158e+308
+        DBL_MAX = 1.7976931348623158e+308
+        Large = DBL_MAX / 4.
 
+        n = len(z)
         if n < 3:
-            medc = 0.0
-            iter[0] = it
+            medc = 0.
+            iter[0] = it  # to return
             iter[1] = converged
             return medc
 
+        # copy data before sort()ing in place, also reflecting it -- dealing with +-Inf.
+        # NOTE: x[0] "empty" so we can use 1-indexing below
         x = [0.0] * (n + 1)
         for i in range(n):
             zi = z[i]
-            x[i + 1] = -Large if zi == float('inf') else (-Large if zi == float('-inf') else zi)
+            x[i + 1] = -((Large if zi == float('inf') else (-Large if zi == -float('inf') else zi)))
 
-        x.sort()
+        x[1:] = sorted(x[1:])  # full sort
 
-        xmed = 0.0
-        if n % 2:
+        # xmed := median(x[1:n]) = -median(z[0:(n-1)])
+        if n % 2:  # n even
             xmed = x[(n // 2) + 1]
-        else:
-            ind = n // 2
-            xmed = (x[ind] + x[ind + 1]) / 2
+        else:  # n odd
+            ind = (n // 2)
+            xmed = (x[ind] + x[ind + 1]) / 2.0
 
         if abs(x[1] - xmed) < eps[0] * (eps[0] + abs(xmed)):
-            medc = -1.0
-            iter[0] = it
+            medc = -1.
+            iter[0] = it  # to return
             iter[1] = converged
             return medc
         elif abs(x[n] - xmed) < eps[0] * (eps[0] + abs(xmed)):
-            medc = 1.0
-            iter[0] = it
+            medc = 1.
+            iter[0] = it  # to return
             iter[1] = converged
             return medc
-
+        # else: median is not at the border
         if trace_lev:
-            print(f"mc_C_d(z[1:{n}], trace_lev={trace_lev}): Median = {xmed} (not at the border)")
+            print(f"mc_C_d(z[1:{n}], trace_lev={trace_lev}): Median = {-xmed} (not at the border)")
 
-        i, j = 0, 0
+        # center x[] wrt median --> such that then median(x[1:n]) == 0
         for i in range(1, n + 1):
             x[i] -= xmed
 
+        # Now scale to inside [-0.5, 0.5] and flip sign such that afterwards
+        # x[1] >= x[2] >= ... >= x[n]
         xden = -2 * max(-x[1], x[n])
         for i in range(1, n + 1):
             x[i] /= xden
         xmed /= xden
         if trace_lev >= 2:
-            print(f" x[] has been rescaled (* 1/s) with s = {xden}")
+            print(f" x[] has been rescaled (* 1/s) with s = {-xden}")
 
         j = 1
         x_eps = eps[0] * (eps[0] + abs(xmed))
-        while j <= n and x[j] > x_eps:
+        while j <= n and x[j] > x_eps:  # test relative to xmed
             j += 1
-
         if trace_lev >= 2:
             print(f"   x1[] := {{x | x_j > x_eps = {x_eps}}}    has {j - 1} (='j-1') entries")
-
         i = 1
-        x2 = x[j - 1:]
-        while j <= n and x[j] > -x_eps:
+        x2 = x[j - 1:]  # pointer -- corresponding to x2[i] = x[j]
+        while j <= n and x[j] > -x_eps:  # test relative to xmed
             j += 1
             i += 1
-
+        # now x1[] := {x | x_j > -eps} also includes the median (0)
         if trace_lev >= 2:
             print(f"'median-x' {{x | -eps < x_i <= eps}} has {i - 1} (= 'k') entries")
-
-        h1 = j - 1
-        h2 = i + (n - j)
+        h1 = j - 1  # == size of x1[] == the sum of those two sizes above
+        # conceptually, x2[] := {x | x_j <= eps} (which includes the median 0)
+        h2 = i + (n - j)  # == size of x2[] == maximal size of whimed() arrays
 
         if trace_lev:
             print(f"  now allocating 2+5 work arrays of size (1+) h2={h2} each:")
-
+        # work arrays for whimed_i()
         acand = [0.0] * h2
         a_srt = [0.0] * h2
         iw_cand = [0] * h2
+        # work arrays for the fast-median-of-table algorithm: currently still with 1-indexing
         left = [1] * (h2 + 1)
         right = [h1] * (h2 + 1)
         p = [0] * (h2 + 1)
         q = [0] * (h2 + 1)
 
-        for i in range(1, h2 + 1):
-            left[i] = 1
-            right[i] = h1
-
-        nr = h1 * h2
+        nr = (h1 * h2)  # <-- careful to *NOT* overflow
         knew = nr // 2 + 1
-
         if trace_lev >= 2:
             print(f" (h1,h2, nr, knew) = ({h1},{h2}, {nr}, {knew})")
 
-        trial = -2.0
+        trial = -2.  # -Wall
         work = [0.0] * n
         iwt = [0] * n
         IsFound = False
         nl = 0
         neq = 0
-
+        # MK: 'neq' counts the number of observations in the inside the tolerance range,
+        # i.e., where left > right + 1, since we would miss those when just using 'nl-nr'.
+        # This is to prevent index overflow in work[] later on.
+        # left might be larger than right + 1 since we are only testing with accuracy eps_trial
+        # and therefore there might be more than one observation in the `tolerance range`
+        # between < and <=.
         while not IsFound and (nr - nl + neq > n) and it < iter[0]:
+            print(it)
             it += 1
             j = 0
-            for i in range(h2):
-                if left[i + 1] <= right[i + 1]:
-                    iwt[j] = right[i + 1] - left[i + 1] + 1
-                    k = left[i + 1] + (iwt[j] // 2)
-                    work[j] = self.h_kern(x[k], x2[i], k, i + 1, h1 + 1, eps[1])
+            for i in range(1, h2 + 1):
+                if left[i] <= right[i]:
+                    iwt[j] = right[i] - left[i] + 1
+                    k = left[i] + (iwt[j] // 2)
+                    work[j] = self.h_kern(x[k], x2[i - 1], k, i, h1 + 1, eps[1])
                     j += 1
-
             if trace_lev >= 4:
-                print(f" before whimed(): work and iwt, each [0:{j - 1}]:")
+                print(" before whimed(): work and iwt, each [0:({})]".format(j - 1))
                 if j >= 100:
                     for i in range(90):
-                        print(f" {work[i]}", end="")
+                        print(f" {work[i]:8g}", end="")
                     print("\n  ... ", end="")
                     for i in range(j - 4, j):
-                        print(f" {work[i]}", end="")
-                    print()
+                        print(f" {work[i]:8g}", end="")
+                    print("\n", end="")
                     for i in range(90):
-                        print(f" {iwt[i]}", end="")
+                        print(f" {iwt[i]:8d}", end="")
                     print("\n  ... ", end="")
                     for i in range(j - 4, j):
-                        print(f" {iwt[i]}", end="")
-                    print()
-                else:
+                        print(f" {iwt[i]:8d}", end="")
+                    print("\n", end="")
+                else:  # j <= 99
                     for i in range(j):
-                        print(f" {work[i]}", end="")
-                    print()
+                        print(f" {work[i]:8g}", end="")
+                    print("\n", end="")
                     for i in range(j):
-                        print(f" {iwt[i]}", end="")
-                    print()
-
+                        print(f" {iwt[i]:8d}", end="")
+                    print("\n", end="")
             trial = self.whimed_i(work, iwt, j, acand, a_srt, iw_cand)
             eps_trial = eps[0] * (eps[0] + abs(trial))
             if trace_lev >= 3:
-                print(f"  it={it}, whimed(*, n={j})= {trial} ", end="")
+                print(f"{' ':2s} it={it:2d}, whimed(*, n={j:6d})= {trial:8g} ", end="")
 
             j = 1
             for i in range(h2, 0, -1):
@@ -1779,66 +1781,87 @@ class BHSTest(AbstractNormalityTest):
                 p[i] = j - 1
 
             j = h1
+            sum_p = 0
+            sum_q = 0
             for i in range(1, h2 + 1):
                 while j >= 1 and trial - self.h_kern(x[j], x2[i - 1], j, i, h1 + 1, eps[1]) > eps_trial:
                     j -= 1
                 q[i] = j + 1
 
+                sum_p += p[i]
+                sum_q += j  # = q[i]-1
+
             if trace_lev >= 3:
                 if trace_lev == 3:
-                    print(f"sum_(p,q)= ({sum(p)}, {sum(q)})", end="")
-                else:
-                    print(f"\n   p[1:{h2}]:", end="")
+                    print(f"sum_(p,q)= ({sum_p},{sum_q})", end="")
+                else:  # trace_lev >= 4
+                    print(f"\n{' ':3s} p[1:{h2}]:", end="")
                     lrg = h2 >= 100
                     i_m = 95 if lrg else h2
-                    for i in range(i_m):
-                        print(f" {p[i + 1]}", end="")
+                    for i in range(1, i_m + 1):
+                        print(f" {p[i]:2d}", end="")
                     if lrg:
                         print(" ...", end="")
-                    print(f" sum={sum(p)}\n   q[1:{h2}]:", end="")
-                    for i in range(i_m):
-                        print(f" {q[i + 1]}", end="")
+                    print(f" sum={sum_p:4.0f}")
+                    print(f"{' ':3s} q[1:{h2}]:", end="")
+                    for i in range(1, i_m + 1):
+                        print(f" {q[i]:2d}", end="")
                     if lrg:
                         print(" ...", end="")
-                    print(f" sum={sum(q)}")
+                    print(f" sum={sum_q:4.0f}")
 
-            if knew <= sum(p):
+            if knew <= sum_p:
                 if trace_lev >= 3:
                     print("; sum_p >= kn")
-                for i in range(h2):
-                    right[i + 1] = p[i + 1]
-                    if left[i + 1] > right[i + 1] + 1:
-                        neq += left[i + 1] - right[i + 1] - 1
-                nr = sum(p)
-            else:
-                IsFound = knew <= sum(q)
+                for i in range(1, h2 + 1):
+                    right[i] = p[i]
+                    if left[i] > right[i] + 1:
+                        neq += left[i] - right[i] - 1
+                nr = sum_p
+            else:  # knew > sum_p
+                IsFound = (knew <= sum_q)  # i.e. sum_p < knew <= sum_q
+
                 if trace_lev >= 3:
-                    print(f"; s_p < kn ?<=? s_q: {'TRUE' if IsFound else 'no'}")
+                    print("; s_p < kn ?<=? s_q: {}".format("TRUE" if IsFound else "no"))
                 if IsFound:
                     medc = trial
-                else:
-                    for i in range(h2):
-                        left[i + 1] = q[i + 1]
-                        if left[i + 1] > right[i + 1] + 1:
-                            neq += left[i + 1] - right[i + 1] - 1
-                    nl = sum(q)
+                else:  # knew > sum_q
+                    for i in range(1, h2 + 1):
+                        left[i] = q[i]
+                        if left[i] > right[i] + 1:
+                            neq += left[i] - right[i] - 1
+                    nl = sum_q
 
         converged = IsFound or (nr - nl + neq <= n)
         if not converged:
             print(f"maximal number of iterations ({iter[0]} =? {it}) reached prematurely")
+            # still:
             medc = trial
+
+        if converged and not IsFound:  # e.g., for mc(1:4)
+            j = 0
+            for i in range(1, h2 + 1):
+                if left[i] <= right[i]:
+                    for k in range(left[i], right[i] + 1):
+                        work[j] = -self.h_kern(x[k], x2[i - 1], k, i, h1 + 1, eps[1])
+                        j += 1
+            if trace_lev:
+                print(f"  not found [it={it},  (nr,nl) = ({nr},{nl})], -> (knew-nl, j) = ({knew - nl},{j})")
+            # using rPsort(work, n,k), since we don't need work[] anymore
+            work[:(knew - nl)] = sorted(work[:(knew - nl)])
+            medc = -work[knew - nl - 1]
 
         if converged and trace_lev >= 2:
             print(f"converged in {it} iterations")
 
-        iter[0] = it
+        iter[0] = it  # to return
         iter[1] = converged
 
         return medc
 
     def h_kern(self, a, b, ai, bi, ab, eps):
-        if abs(a - b) < 2.0 * eps or b > 0:
-            return math.copysign(1, ab - (ai + bi))
+        if np.abs(a - b) < 2.0 * eps or b > 0:
+            return np.sign(ab - (ai + bi))
         else:
             return (a + b) / (a - b)
 
@@ -1847,22 +1870,13 @@ class BHSTest(AbstractNormalityTest):
         wrest = 0
 
         while True:
-            for i in range(n):
-                a_srt[i] = a[i]
+            a_srt[:] = sorted(a)
             n2 = n // 2
-            a_srt.sort()
             trial = a_srt[n2]
 
-            wleft = 0
-            wmid = 0
-            wright = 0
-            for i in range(n):
-                if a[i] < trial:
-                    wleft += w[i]
-                elif a[i] > trial:
-                    wright += w[i]
-                else:
-                    wmid += w[i]
+            wleft = sum(w[i] for i in range(n) if a[i] < trial)
+            wmid = sum(w[i] for i in range(n) if a[i] == trial)
+            wright = sum(w[i] for i in range(n) if a[i] > trial)
 
             kcand = 0
             if 2 * (wrest + wleft) > w_tot:
@@ -1885,7 +1899,6 @@ class BHSTest(AbstractNormalityTest):
             for i in range(n):
                 a[i] = a_cand[i]
                 w[i] = w_cand[i]
-"""
 
 
 class SpiegelhalterTest(AbstractNormalityTest):
@@ -1929,3 +1942,48 @@ class SpiegelhalterTest(AbstractNormalityTest):
             statSp = ((cn * u) ** (-(n - 1)) + g ** (-(n - 1))) ** (1 / (n - 1))
 
             return statSp  # Here is the test statistic value
+
+
+class DesgagneLafayeTest(AbstractNormalityTest):
+
+    @staticmethod
+    def code():
+        return 'DLDMZEPD'
+
+    def execute_statistic(self, rvs):
+        return self.stat35(rvs)
+
+    def stat35(self, x):
+        n = len(x)
+
+        if n > 3:
+            # Computation of the value of the test statistic
+            y = np.zeros(n)
+            varpopX = 0.0
+            meanX = np.mean(x)
+            r1 = 0.0
+            r2 = 0.0
+            r3 = 0.0
+
+            for i in range(n):
+                varpopX += x[i] ** 2
+            varpopX = varpopX / n - meanX ** 2
+            sdX = np.sqrt(varpopX)
+            for i in range(n):
+                y[i] = (x[i] - meanX) / sdX
+
+            # Formulas given in our paper p. 169
+            for i in range(n):
+                r1 += y[i] ** 2 * np.log(abs(y[i]))
+                r2 += np.log(1.0 + abs(y[i]))
+                r3 += np.log(np.log(2.71828182846 + abs(y[i])))
+            r1 = 0.18240929 - 0.5 * r1 / n
+            r2 = 0.5348223 - r2 / n
+            r3 = 0.20981558 - r3 / n
+
+            # Formula given in our paper p. 170
+            Rn = n * ((r1 * 1259.04213344 - r2 * 32040.69569026 + r3 * 85065.77739473) * r1 + (
+                    -r1 * 32040.6956903 + r2 * 918649.9005906 - r3 * 2425883.3443201) * r2 + (
+                              r1 * 85065.7773947 - r2 * 2425883.3443201 + r3 * 6407749.8211208) * r3)
+
+            return Rn  # Here is the test statistic value
