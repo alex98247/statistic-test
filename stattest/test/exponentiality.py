@@ -245,11 +245,11 @@ class CVMTestExp(AbstractExponentialityTest):
         return cvm
 
 
-class DeshpandeTestExp(AbstractExponentialityTest):
+class DSPTestExp(AbstractExponentialityTest):
 
     @staticmethod
     def code():
-        return 'Deshpande_exp'
+        return 'DSP_exp'
 
     def execute_statistic(self, rvs, b=0.44):
         """
@@ -309,11 +309,11 @@ class EPSTestExp(AbstractExponentialityTest):
         return eps
 
 
-class FroziniTestExp(AbstractExponentialityTest):
+class FZTestExp(AbstractExponentialityTest):
 
     @staticmethod
     def code():
-        return 'Frozini_exp'
+        return 'FZ_exp'
 
     def execute_statistic(self, rvs):
         """
@@ -721,6 +721,7 @@ class RSTestExp(AbstractExponentialityTest):
 
         return rs
 '''
+
 
 class WETestExp(AbstractExponentialityTest):
 
