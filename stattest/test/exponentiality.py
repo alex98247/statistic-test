@@ -56,7 +56,7 @@ class EPTestExp(AbstractExponentialityTest):
 
     @staticmethod
     def code():
-        return 'EP'
+        return 'EP_exp'
 
     def execute_statistic(self, rvs):
         """
@@ -64,12 +64,12 @@ class EPTestExp(AbstractExponentialityTest):
 
         Parameters
         ----------
-        x : array_like
+        rvs : array_like
             Array of sample data.
 
         Returns
         -------
-        statistic : float
+        ep : float
             The test statistic.
         """
 
@@ -78,3 +78,36 @@ class EPTestExp(AbstractExponentialityTest):
         ep = np.sqrt(48 * n) * np.sum(np.exp(-y) - 1 / 2) / n
 
         return ep
+
+
+class KSTestExp(AbstractExponentialityTest):
+
+    @staticmethod
+    def code():
+        return 'KS_exp'
+
+    def execute_statistic(self, rvs):
+        """
+        Kolmogorov and Smirnov test statistic for exponentiality.
+
+        Parameters
+        ----------
+        rvs : array_like
+            Array of sample data.
+
+        Returns
+        -------
+        ks : float
+            The test statistic.
+        """
+
+        n = len(rvs)
+        y = rvs / np.mean(rvs)
+        z = np.sort(1 - np.exp(-y))
+        j1 = np.arange(1, n + 1) / n
+        m1 = np.max(j1 - z)
+        j2 = (np.arange(0, n) + 1) / n
+        m2 = np.max(z - j2)
+        ks = max(m1, m2)
+
+        return ks
