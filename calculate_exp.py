@@ -22,7 +22,8 @@ if __name__ == '__main__':
     cpu_count = 12  # multiprocessing.cpu_count()
     manager = multiprocessing.Manager()
     lock = manager.Lock()
-    cache = ThreadSafeMonteCarloCacheService(lock=lock)
+    cr_dict = manager.dict()
+    cache = ThreadSafeMonteCarloCacheService(lock=lock, cache=cr_dict)
     tests = [cls(cache) for cls in AbstractExponentialityTest.__subclasses__()]
     tests_chunks = np.array_split(np.array(tests), cpu_count)
     with multiprocessing.Pool(cpu_count) as pool:

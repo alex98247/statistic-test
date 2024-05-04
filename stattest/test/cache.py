@@ -51,9 +51,10 @@ class MonteCarloCacheService(FastJsonStoreService):
 
 class ThreadSafeMonteCarloCacheService(MonteCarloCacheService):
 
-    def __init__(self, lock, filename='cache.json', separator=':', csv_delimiter=';', dir_path='test_distribution'):
+    def __init__(self, lock, filename='cache.json', separator=':', csv_delimiter=';', dir_path='test_distribution', cache=None):
         super().__init__(filename, separator, csv_delimiter, dir_path)
         self.lock = lock
+        self.cache = cache
 
     def flush(self):
         """
@@ -61,7 +62,8 @@ class ThreadSafeMonteCarloCacheService(MonteCarloCacheService):
         """
 
         with self.lock:
-            write_json(self.filename, self.cache)
+            cache_dict = dict(self.cache)
+            write_json(self.filename, cache_dict)
 
     def put(self, key: str, value):
         """
