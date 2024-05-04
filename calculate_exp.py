@@ -19,7 +19,7 @@ def run(tests_to_run: [AbstractExponentialityTest], sizes):
 
 
 if __name__ == '__main__':
-    cpu_count = 4  # multiprocessing.cpu_count()
+    cpu_count = 12  # multiprocessing.cpu_count()
     manager = multiprocessing.Manager()
     lock = manager.Lock()
     cache = ThreadSafeMonteCarloCacheService(lock=lock)

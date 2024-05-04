@@ -90,7 +90,7 @@ class InMemoryStoreService(StoreService):
 class JsonStoreService(InMemoryStoreService):
 
     def __init__(self, filename='cache.json', separator='.'):
-        super().__init__(separator)
+        super().__init__(separator=separator)
         mem_cache = {}
         if os.path.isfile(filename):
             mem_cache = read_json(filename)
@@ -132,7 +132,7 @@ class FastStoreService(InMemoryStoreService):
 class FastJsonStoreService(FastStoreService):
 
     def __init__(self, filename='cache.json', separator='.'):
-        super().__init__(separator)
+        super().__init__(separator=separator)
         mem_cache = {}
         if os.path.isfile(filename):
             mem_cache = read_json(filename)
