@@ -66,7 +66,7 @@ class AbstractExponentialityTest(AbstractTest):
     def generate(self, size, lam=1):
         return expon.generate_expon(size, lam)
 
-'''
+
 class EPTestExp(AbstractExponentialityTest):
 
     @staticmethod
@@ -128,7 +128,6 @@ class KSTestExp(AbstractExponentialityTest):
         return ks
 
 
-'''
 class AHSTestExp(AbstractExponentialityTest):
 
     @staticmethod
@@ -163,7 +162,6 @@ class AHSTestExp(AbstractExponentialityTest):
         a = (h - g) / (n ** 3)
 
         return a
-'''
 
 
 class ATKTestExp(AbstractExponentialityTest):
@@ -477,7 +475,7 @@ class HG1TestExp(AbstractExponentialityTest):
         hg = (n ** (-1)) * np.sum(np.abs(x - b))
 
         return hg
-'''
+
 
 class HPTestExp(AbstractExponentialityTest):
 
@@ -510,7 +508,6 @@ class HPTestExp(AbstractExponentialityTest):
         hp = (2 / (n * (n - 1) * (n - 2))) * t
 
         return hp
-'''
 
 
 class KMTestExp(AbstractExponentialityTest):
@@ -687,7 +684,7 @@ class SWTestExp(AbstractExponentialityTest):
         sw = n * (y - rvs[0]) ** 2 / ((n - 1) * np.sum((rvs - y) ** 2))
 
         return sw
-'''
+
 
 class RSTestExp(AbstractExponentialityTest):
 
@@ -734,7 +731,6 @@ class RSTestExp(AbstractExponentialityTest):
         rs /= n
 
         return rs
-'''
 
 
 class WETestExp(AbstractExponentialityTest):
