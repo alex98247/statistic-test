@@ -38,7 +38,7 @@ def calculate_test_power(test: AbstractTest, rvs_generator: AbstractRVSGenerator
     return k / count
 
 
-def calculate_power(test: AbstractTest, data: [[float]], alpha=0.05) -> float:
+def calculate_power(test: AbstractTest, data: [[float]], alpha=0.05, calculate_time=False) -> float:
     """
     Calculate statistic test power.
 
@@ -50,13 +50,13 @@ def calculate_power(test: AbstractTest, data: [[float]], alpha=0.05) -> float:
     k = 0
     count = len(data[0])
     for i in range(count):
-        x = test.test(data[i], alpha=alpha)
+        x = test.test(data[i], alpha=alpha, calculate_time=calculate_time)
         if x is False:
             k = k + 1
     return k / count
 
 
-def calculate_powers(tests: [AbstractTest], data: [[float]], alpha=0.05) -> [float]:
+def calculate_powers(tests: [AbstractTest], data: [[float]], alpha=0.05, calculate_time=False) -> [float]:
     """
     Calculate statistic tests power.
 
@@ -66,4 +66,4 @@ def calculate_powers(tests: [AbstractTest], data: [[float]], alpha=0.05) -> [flo
     :return: statistic test power
     """
 
-    return [calculate_power(test, data, alpha) for test in tests]
+    return [calculate_power(test, data, alpha, calculate_time) for test in tests]

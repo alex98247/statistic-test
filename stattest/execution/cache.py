@@ -1,4 +1,4 @@
-from stattest.core.store import FastJsonStoreService
+from stattest.core.store import FastJsonStoreService, write_json
 
 
 class CacheResultService(FastJsonStoreService):
@@ -32,3 +32,67 @@ class CacheResultService(FastJsonStoreService):
             if len(split) > level and key.startswith(key_prefix):
                 result.append(split[level])
         return set(result)
+
+
+class ThreadSafeCacheResultService(CacheResultService):
+    def __init__(self, filename='result.json', separator=':', cache=None, lock=None):
+        super().__init__(filename=filename, separator=separator)
+        self.filename = filename
+        self.separator = separator
+        self.cache = cache
+        self.lock = lock
+
+    def flush(self):
+        """
+        Flush data to persisted store.
+        """
+
+        with self.lock:
+            cache_dict = dict(self.cache)
+            write_json(self.filename, cache_dict)
+
+    def put(self, key: str, value):
+        """
+        Put object to cache.
+
+        :param key: cache key
+        :param value: cache value
+        """
+        with self.lock:
+            self.cache[key] = value
+
+    def put_with_level(self, keys: [str], value):
+        """
+        Put JSON value by keys chain in 'keys' param.
+
+        :param value: value to put
+        :param keys: keys chain param
+        """
+
+        key = self._create_key(keys)
+        with self.lock:
+            self.cache[key] = value
+
+    def set_filename(self, filename: str):
+        """
+        Sets filename field.
+
+        Parameters
+        ----------
+        filename : str
+            Filename.
+        """
+
+        self.filename = filename
+
+    def set_separator(self, separator: str):
+        """
+        Sets filename field.
+
+        Parameters
+        ----------
+        separator : str
+            Filename.
+        """
+
+        self.separator = separator

@@ -13,6 +13,7 @@ from stattest.core.distribution.student import generate_t
 from stattest.core.distribution.truncnormal import generate_truncnorm
 from stattest.core.distribution.tukey import generate_tukey
 from stattest.core.distribution.weibull import generate_weibull
+from stattest.core.distribution.norm import generate_norm
 
 
 class AbstractRVSGenerator:
@@ -207,3 +208,15 @@ class MixConNormGenerator(AbstractRVSGenerator):
 
     def generate(self, size):
         return generate_mix_con_norm(size=size, p=self.p, a=self.a, b=self.b)
+
+
+class NormRVSGenerator(AbstractRVSGenerator):
+    def __init__(self, mean, var):
+        self.mean = mean
+        self.var = var
+
+    def code(self):
+        return super()._convert_to_code(['norm', self.mean, self.var])
+
+    def generate(self, size):
+        return generate_norm(size=size, mean=self.mean, var=self.var)

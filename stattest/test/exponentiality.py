@@ -7,13 +7,15 @@ import scipy.stats as scipy_stats
 import scipy.special as scipy_special
 
 from stattest.test.cache import MonteCarloCacheService
+from stattest.test.time_cache import TimeCacheService
 
 
 class AbstractExponentialityTest(AbstractTest):
 
-    def __init__(self, cache=MonteCarloCacheService()):
+    def __init__(self, cache=MonteCarloCacheService(), time_cache=TimeCacheService()):
         self.lam = 1
         self.cache = cache
+        self.time_cache = time_cache
 
     def calculate_critical_value(self, rvs_size, alpha, count=1_000_000):
         keys_cr = [self.code(), str(rvs_size), str(alpha)]
@@ -44,16 +46,27 @@ class AbstractExponentialityTest(AbstractTest):
         self.cache.flush()
         return x_cr
 
-    def test(self, rvs, alpha):
-        x_cr = self.calculate_critical_value(len(rvs), alpha)
-        statistic = self.execute_statistic(rvs)
+    def test(self, rvs, alpha, calculate_time=False):
+        rvs_len = len(rvs)
+
+        x_cr = self.calculate_critical_value(rvs_len, alpha)
+
+        if calculate_time:
+            start = self.time_cache.count_time()
+            statistic = self.execute_statistic(rvs)
+            stop = self.time_cache.count_time()
+
+            time = stop - start
+            self.time_cache.put_time(self.code(), rvs_len, [time])
+        else:
+            statistic = self.execute_statistic(rvs)
 
         return False if statistic > x_cr else True
 
     def generate(self, size, lam=1):
         return expon.generate_expon(size, lam)
 
-
+'''
 class EPTestExp(AbstractExponentialityTest):
 
     @staticmethod
@@ -332,6 +345,7 @@ class FZTestExp(AbstractExponentialityTest):
 
         n = len(rvs)
         rvs.sort()
+        rvs = np.array(rvs)
         y = np.mean(rvs)
         froz = (1 / np.sqrt(n)) * np.sum(np.abs(1 - np.exp(-rvs / y) - (np.arange(1, n + 1) - 0.5) / n))
 
@@ -463,8 +477,8 @@ class HG1TestExp(AbstractExponentialityTest):
         hg = (n ** (-1)) * np.sum(np.abs(x - b))
 
         return hg
-
 '''
+
 class HPTestExp(AbstractExponentialityTest):
 
     @staticmethod
@@ -673,8 +687,8 @@ class SWTestExp(AbstractExponentialityTest):
         sw = n * (y - rvs[0]) ** 2 / ((n - 1) * np.sum((rvs - y) ** 2))
 
         return sw
-
 '''
+
 class RSTestExp(AbstractExponentialityTest):
 
     @staticmethod
